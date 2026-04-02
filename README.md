@@ -68,10 +68,6 @@ PLAN ──▶ APPROVE ──▶ APPLY ──▶ UNIFY ──▶ VERIFY
 /plugin install jade
 ```
 
-### Manual
-
-Clone the repo and point Claude Code at the `jade/` directory.
-
 ---
 
 ## Setup Wizard
