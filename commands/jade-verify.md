@@ -62,9 +62,18 @@ Type PASS to mark as Done, or FAIL to capture issues.
 Wait for user response.
 
 **If PASS (or clear equivalent):**
-1. Transition Jira ticket: `In Review` → `Done` via Atlassian MCP
+1. Source credentials and transition Jira ticket `In Review` → `Done` via REST API:
+   ```bash
+   source .jade/.env
+   AUTH="Authorization: Basic $(echo -n "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" | base64)"
+   TRANSITIONS=$(curl -s -H "$AUTH" "$JIRA_BASE_URL/rest/api/3/issue/$JIRA_KEY/transitions")
+   TRANSITION_ID=$(echo "$TRANSITIONS" | jq -r '.transitions[] | select(.name | test("done";"i")) | .id')
+   curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" \
+     "$JIRA_BASE_URL/rest/api/3/issue/$JIRA_KEY/transitions" \
+     -d '{"transition":{"id":"'"$TRANSITION_ID"'"}}'
+   ```
 2. Update STATE.md: `status: Done`, `last_synced: [ISO timestamp]`
-3. Post comment to Jira: "✅ UAT passed. Ticket closed."
+3. Post comment to Jira via REST API: "✅ UAT passed. Ticket closed."
 4. Print:
    ```
    ✅ UAT passed.
@@ -75,7 +84,7 @@ Wait for user response.
 **If FAIL:**
 1. Ask: "Describe the issues found."
 2. Capture issues to `.jade/phases/XX-name/{plan}-UAT.md`
-3. Post comment to Jira: "❌ UAT failed. Issues captured for fix."
+3. Post comment to Jira via REST API: "❌ UAT failed. Issues captured for fix."
 4. Print:
    ```
    ❌ UAT issues captured.
@@ -92,7 +101,7 @@ Wait for user response.
 - [ ] Summary of deliverables presented
 - [ ] PR URL shown
 - [ ] User verdict collected (PASS or FAIL)
-- [ ] On PASS: Jira ticket transitioned to Done
+- [ ] On PASS: Jira ticket transitioned to Done (via curl)
 - [ ] On FAIL: Issues captured and logged
 - [ ] Clear next action provided
 </success_criteria>

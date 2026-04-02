@@ -30,36 +30,34 @@ JADE CONFIGURATION
 
 Jira
 ─────────────────────────────────────
-  Base URL:     [JIRA_BASE_URL or "not set"]
-  Project key:  [JIRA_PROJECT_KEY or "not set"]
-  Email:        [ATLASSIAN_EMAIL or "not set"]
-  MCP server:   [configured/not configured in ~/.claude.json]
+  Base URL:     [JIRA_BASE_URL from .jade/.env or "not set"]
+  Project key:  [JIRA_PROJECT_KEY from .jade/.env or "not set"]
+  Email:        [ATLASSIAN_EMAIL from .jade/.env or "not set"]
 
 GitHub
 ─────────────────────────────────────
-  Repository:   [GITHUB_REPO_URL or "not set"]
-  Default branch: [GITHUB_DEFAULT_BRANCH or "main"]
+  gh CLI:         [gh auth status result]
   Remote verified: [yes/no]
-  MCP server:   [configured/not configured in ~/.claude.json]
-  Git identity: [GIT_USER_NAME] <[GIT_USER_EMAIL]>
+  Git identity:    [from git config]
 
 Project
 ─────────────────────────────────────
   JADE directory: [.jade/ exists/missing]
-  Setup marker:   [~/.claude/.jade-configured exists/missing]
+  Credentials:    [.jade/.env exists/missing]
+  Setup marker:   [.jade/.configured exists/missing]
 
 ════════════════════════════════════════
 
 What would you like to do?
 [1] View full config
-[2] Reconfigure (removes ~/.claude/.jade-configured)
+[2] Reconfigure (removes .jade/.configured)
 [3] Done
 ```
 </step>
 
 <step name="handle_reconfigure">
 If user wants to reconfigure:
-1. Remove `~/.claude/.jade-configured`
+1. Remove `.jade/.configured`
 2. Print: "Configuration cleared. Run `/jade:init` to reconfigure."
 </step>
 

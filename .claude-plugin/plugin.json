@@ -1,7 +1,7 @@
 {
   "name": "jade",
-  "version": "1.0.0",
-  "description": "JADE — Jira → Approval → Driven Test → Evaluation. PAUL extended with Jira MCP integration, GitHub MCP integration, human approval gate, and Superpowers-style TDD enforcement.",
+  "version": "2.0.0",
+  "description": "JADE — Jira → Approval → Driven Test → Evaluation. PAUL extended with Jira REST API, GitHub gh CLI, human approval gate, full-plan-upfront workflow, and Superpowers-style TDD enforcement.",
   "author": {
     "name": "Bryan Phang"
   },

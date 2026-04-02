@@ -12,39 +12,42 @@ Output ONLY the reference content below. Do NOT add project-specific analysis, g
 <reference>
 # JADE Command Reference
 
-**JADE** (Jira -> Approval -> Driven Test -> Evaluation) extends PAUL's Plan-Apply-Unify loop with Jira MCP integration, GitHub integration, and Superpowers-style TDD enforcement.
+**JADE** (Jira -> Approval -> Driven Test -> Evaluation) extends PAUL's Plan-Apply-Unify loop with Jira REST API integration, GitHub `gh` CLI integration, and Superpowers-style TDD enforcement.
 
 ## The Loop
 
 ```
-┌──────────────────────────────────────────────────────┐
-│  PLAN ──▶ APPROVE ──▶ APPLY ──▶ UNIFY ──▶ VERIFY    │
-│                                                      │
-│  Define    Human       TDD per    Jira +    UAT      │
-│  work      gate        task       PR        gate     │
-└──────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  INIT ──▶ PLAN ALL ──▶ APPROVE ──▶ [per-phase loop]         │
+│                                                              │
+│  Setup     Full         Human       APPLY ──▶ UNIFY          │
+│  project   roadmap      gate        (TDD)     (Jira + PR)    │
+│                                     ↕                        │
+│                                     optional plan revision    │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-**Never skip UNIFY.** Every plan needs a summary, Jira post, and PR.
+**Never skip UNIFY.** Every phase needs a summary, Jira post, and PR.
 
 ## Quick Start
 
-1. `/jade:init` - Initialize JADE (creates project + configures Jira/GitHub)
-2. `/jade:plan` - Plan your work (auto-creates Jira ticket after APPROVE)
-3. `/jade:apply` - Execute with TDD enforcement (commits + pushes per task)
-4. `/jade:unify` - Close loop (post to Jira, open PR, create deferred tickets)
+1. `/jade:init` - Set up project (credentials, overview, roadmap, phase directories)
+2. `/jade:plan` - Generate ALL phase plans → APPROVE
+3. `/jade:apply` - Execute current phase with TDD (commits + pushes per task)
+4. `/jade:unify` - Close phase loop (post to Jira, open PR)
 5. `/jade:verify` - UAT gate (transitions Jira ticket to Done on pass)
 
 ## Commands
 
 | Command | What it does |
 |---|---|
-| `/jade:init` | Initialize JADE in a project — creates .jade/, configures Jira + GitHub |
-| `/jade:plan` | **DEFAULT** — plan conversation -> APPROVE -> Jira ticket auto-created. No ticket number needed. |
-| `/jade:plan PROJ-123` | **Jira-first** — fetch existing ticket PROJ-123, pre-populate plan, APPROVE to link. |
-| `/jade:apply` | Execute plan with RED/GREEN/REFACTOR TDD gate per task. Verifies GitHub remote. Creates feature branch. Commits and pushes after every task. Updates Jira per task. |
-| `/jade:unify` | Close the loop. Post summary to Jira. Transition ticket. Create deferred tickets. Open PR on GitHub. |
-| `/jade:progress` | Smart status + ONE next action. Shows Jira/GitHub/TDD status. |
+| `/jade:init` | Initialize JADE — credentials, project overview, roadmap, phase directories |
+| `/jade:plan` | **Plan All** — generate plans for every phase, present for APPROVE |
+| `/jade:plan --revise N` | **Revise** — update plan for phase N based on learnings |
+| `/jade:plan PROJ-123` | **Jira-first** — fetch existing ticket, pre-populate plan, APPROVE to link |
+| `/jade:apply` | Execute phase with RED/GREEN/REFACTOR TDD gate per task. Creates Jira ticket if needed. Commits and pushes after every task. |
+| `/jade:unify` | Close the loop. Post summary to Jira. Transition ticket. Create deferred tickets. Open PR via `gh`. |
+| `/jade:progress` | Smart status + ONE next action. Shows Jira/GitHub/TDD status across all phases. |
 | `/jade:resume [path]` | Restore context from STATE.md and handoffs. Shows Jira/GitHub state. |
 | `/jade:verify` | Simple UAT gate. Type PASS to transition ticket to Done. |
 | `/jade:pause [reason]` | Create handoff, post pause comment to Jira. |
@@ -70,9 +73,9 @@ Output ONLY the reference content below. Do NOT add project-specific analysis, g
 
 | JADE event | Jira transition | GitHub action |
 |---|---|---|
-| `/jade:plan` approved (plan-first) | Ticket auto-created -> `To Do` | -- |
+| `/jade:plan` approved (plan-first) | Phase 1 ticket created -> `To Do` | -- |
 | `/jade:plan PROJ-123` approved (Jira-first) | Existing ticket linked -> `To Do` | -- |
-| `/jade:apply` starts | `To Do` -> `In Progress` | Branch `jade/PROJ-123` created and pushed |
+| `/jade:apply` starts | Ticket created (if needed) -> `In Progress` | Branch `jade/PROJ-123` created and pushed |
 | Task completes (RED/GREEN/REFACTOR) | Comment posted with test results | Commit + push to `jade/PROJ-123` |
 | Task fails TDD gate | Comment posted: `Blocked: [reason]` | No push until gate passes |
 | `/jade:unify` runs | `In Progress` -> `In Review` | PR opened: `jade/PROJ-123` -> `main` |
@@ -98,6 +101,8 @@ REFACTOR — Clean up. No new behaviour. Confirm still green.
 ├── PROJECT.md
 ├── ROADMAP.md
 ├── STATE.md          (includes Jira, GitHub, TDD Results sections)
+├── .env              (Jira credentials — gitignored)
+├── .configured       (sentinel)
 ├── config.md         (optional)
 ├── SPECIAL-FLOWS.md  (optional)
 └── phases/
@@ -111,13 +116,14 @@ REFACTOR — Clean up. No new behaviour. Confirm still green.
 ## Key Principles
 
 1. **Approval gate** — NEVER begin APPLY without user APPROVE
-2. **TDD enforcement** — RED -> GREEN -> REFACTOR for every task, no exceptions
-3. **Jira sync** — Every task posts results to Jira, status always reflects reality
-4. **GitHub gate** — Remote must be verified before any code is written
-5. **Loop integrity** — PLAN -> APPLY -> UNIFY, never skip UNIFY
-6. **Boundaries** — DO NOT CHANGE files in boundaries section are absolute
+2. **Full plan upfront** — Generate all phase plans at once, revise between phases as needed
+3. **TDD enforcement** — RED -> GREEN -> REFACTOR for every task, no exceptions
+4. **Jira sync** — Every task posts results to Jira (via curl), status always reflects reality
+5. **GitHub gate** — Remote must be verified before any code is written
+6. **Loop integrity** — Per-phase: APPLY -> UNIFY, never skip UNIFY
+7. **Boundaries** — DO NOT CHANGE files in boundaries section are absolute
 
 ---
 
-*JADE v1.0 | Built on PAUL (ChristopherKahler/paul) + Superpowers TDD (obra/superpowers)*
+*JADE v2.0 | Built on PAUL (ChristopherKahler/paul) + Superpowers TDD (obra/superpowers)*
 </reference>

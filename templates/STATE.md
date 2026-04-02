@@ -91,13 +91,18 @@ Stopped at: [Description of last completed action]
 Next action: [What to do when resuming]
 Resume context: [Key information needed to continue]
 
+## Plan Status
+plans_approved:
+<!-- Per-phase status: planned | revised | executing | complete -->
+<!-- phase_01: planned -->
+<!-- phase_02: planned -->
+
 ## Jira
 ticket:
 status:
 last_synced:
 
 ## GitHub
-repo:
 branch:
 remote_verified:
 last_push:

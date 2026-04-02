@@ -10,7 +10,7 @@ Reconcile plan versus actual results, create SUMMARY.md, post to Jira, and open 
 
 **When to use:** After APPLY phase complete. This is MANDATORY — never skip UNIFY.
 
-Creates SUMMARY.md, posts structured summary to Jira, transitions ticket to In Review, creates PR via GitHub MCP, and creates child tickets for deferred issues.
+Creates SUMMARY.md, posts structured summary to Jira, transitions ticket to In Review, creates PR via `gh` CLI, and creates child tickets for deferred issues.
 </objective>
 
 <context>
@@ -54,18 +54,15 @@ Create SUMMARY.md in same directory as PLAN.md:
 <!-- ════════════════════════════════════════════════ -->
 
 <step name="jira_summary">
-Post SUMMARY.md content as a structured comment to the Jira ticket via Atlassian MCP:
+Post SUMMARY.md content as a structured comment to the Jira ticket via REST API:
 
-```
-## JADE Implementation Summary — [jira_key]
-
-**Objective:** [from plan objective]
-**Delivered:** [from unify reconciliation]
-**TDD Results:** [from STATE.md TDD Results section]
-**Decisions made:** [from unify decisions log]
-**Deferred issues:** [list]
-**Commits:** [list of commit SHAs with messages]
-**PR:** [PR URL if raised]
+```bash
+source .jade/.env
+AUTH="Authorization: Basic $(echo -n "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" | base64)"
+curl -s -X POST \
+  -H "$AUTH" -H "Content-Type: application/json" \
+  "$JIRA_BASE_URL/rest/api/3/issue/$JIRA_KEY/comment" \
+  -d '{"body":{"version":3,"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"## JADE Implementation Summary — [jira_key]\n\nObjective: [from plan]\nDelivered: [from reconciliation]\nTDD Results: [from STATE.md]\nDecisions: [from log]\nDeferred: [list]\nCommits: [SHAs]\nPR: [PR URL]"}]}]}}'
 ```
 </step>
 
@@ -74,7 +71,19 @@ Post SUMMARY.md content as a structured comment to the Jira ticket via Atlassian
 <!-- ════════════════════════════════════════════════ -->
 
 <step name="jira_transition">
-Transition Jira ticket: `In Progress` → `In Review` via Atlassian MCP.
+Transition Jira ticket `In Progress` → `In Review` via REST API:
+
+```bash
+source .jade/.env
+AUTH="Authorization: Basic $(echo -n "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" | base64)"
+# Get available transitions
+TRANSITIONS=$(curl -s -H "$AUTH" "$JIRA_BASE_URL/rest/api/3/issue/$JIRA_KEY/transitions")
+TRANSITION_ID=$(echo "$TRANSITIONS" | jq -r '.transitions[] | select(.name | test("review";"i")) | .id')
+curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" \
+  "$JIRA_BASE_URL/rest/api/3/issue/$JIRA_KEY/transitions" \
+  -d '{"transition":{"id":"'"$TRANSITION_ID"'"}}'
+```
+
 Update STATE.md: `status: In Review`
 </step>
 
@@ -83,17 +92,17 @@ Update STATE.md: `status: In Review`
 <!-- ════════════════════════════════════════════════ -->
 
 <step name="create_pr">
-After pushing the final commit, create a Pull Request via GitHub MCP:
+After pushing the final commit, create a Pull Request via `gh` CLI:
 
-**Title:** `[jira_key] [plan objective — first sentence]`
-
-**Body:**
-```markdown
+```bash
+gh pr create \
+  --title "[jira_key] [plan objective — first sentence]" \
+  --body "$(cat <<'EOF'
 ## Summary
 [from SUMMARY.md — delivered section]
 
 ## Jira ticket
-[JIRA_BASE_URL]/browse/[jira_key]
+$JIRA_BASE_URL/browse/[jira_key]
 
 ## TDD Results
 [from STATE.md TDD Results section — formatted as table]
@@ -103,10 +112,11 @@ After pushing the final commit, create a Pull Request via GitHub MCP:
 
 ## Acceptance Criteria
 [from PLAN.md acceptance_criteria section]
+EOF
+)" \
+  --base main \
+  --head jade/[jira_key]
 ```
-
-**Base branch:** `main` (or configured default branch from GITHUB_DEFAULT_BRANCH)
-**Head branch:** `jade/[jira_key]`
 
 Print the PR URL to the user.
 Update STATE.md: `pr: [PR URL]`
@@ -119,12 +129,16 @@ Update STATE.md: `pr: [PR URL]`
 <step name="deferred_tickets">
 For each deferred issue captured during reconciliation:
 
-Create a new Jira ticket via Atlassian MCP:
-- Summary: `[Deferred from [jira_key]] [issue description]`
-- Type: Task
-- Label: `deferred`
-- Link: `relates to [jira_key]`
-- Project: [JIRA_PROJECT_KEY from env]
+Create a new Jira ticket via REST API:
+
+```bash
+source .jade/.env
+AUTH="Authorization: Basic $(echo -n "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" | base64)"
+curl -s -X POST \
+  -H "$AUTH" -H "Content-Type: application/json" \
+  "$JIRA_BASE_URL/rest/api/3/issue" \
+  -d '{"fields":{"project":{"key":"'"$JIRA_PROJECT_KEY"'"},"summary":"[Deferred from [jira_key]] [issue description]","issuetype":{"name":"Task"},"labels":["deferred"]}}'
+```
 
 Report all created ticket keys to the user.
 </step>
@@ -175,11 +189,11 @@ Deferred: [N] new tickets created
 
 <success_criteria>
 - [ ] SUMMARY.md created with reconciliation
-- [ ] Structured summary posted to Jira ticket as comment
-- [ ] Jira ticket transitioned to In Review
-- [ ] Pull Request created via GitHub MCP
+- [ ] Structured summary posted to Jira ticket as comment (via curl)
+- [ ] Jira ticket transitioned to In Review (via curl)
+- [ ] Pull Request created via `gh pr create`
 - [ ] PR URL written to STATE.md
-- [ ] Deferred issues created as child Jira tickets
+- [ ] Deferred issues created as Jira tickets (via curl)
 - [ ] STATE.md updated with loop closure
 - [ ] User knows next action: /jade:verify
 </success_criteria>

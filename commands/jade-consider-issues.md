@@ -36,12 +36,15 @@ For each issue, analyze against current codebase:
 Present categorized report to user.
 
 For issues the user wants to promote:
-1. Create Jira ticket via Atlassian MCP:
-   - Summary: `[From deferred] [issue description]`
-   - Type: Task
-   - Label: `deferred`
-   - Link: `relates to [parent_jira_key]`
-   - Project: [JIRA_PROJECT_KEY]
+1. Create Jira ticket via REST API:
+   ```bash
+   source .jade/.env
+   AUTH="Authorization: Basic $(echo -n "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" | base64)"
+   curl -s -X POST \
+     -H "$AUTH" -H "Content-Type: application/json" \
+     "$JIRA_BASE_URL/rest/api/3/issue" \
+     -d '{"fields":{"project":{"key":"'"$JIRA_PROJECT_KEY"'"},"summary":"[From deferred] [issue description]","issuetype":{"name":"Task"},"labels":["deferred"]}}'
+   ```
 2. Report created ticket key
 3. Update ISSUES.md to mark as promoted
 </step>

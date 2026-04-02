@@ -6,7 +6,7 @@ allowed-tools: [Read]
 ---
 
 <objective>
-Show current progress including Jira ticket status, GitHub branch state, and TDD results. Route to exactly ONE next action.
+Show current progress including Jira ticket status, GitHub branch state, and TDD results across all phases. Route to exactly ONE next action.
 
 **When to use:**
 - Mid-session check on progress
@@ -28,6 +28,8 @@ Read `.jade/STATE.md` and `.jade/ROADMAP.md`:
 - Current phase and total phases
 - Current plan (if any)
 - Loop position (PLAN/APPLY/UNIFY markers)
+- Plans approved timestamp
+- Per-phase plan status (planned / revised / executing / complete)
 - Jira section: ticket key, status, last synced
 - GitHub section: branch, remote verified, last push, PR URL
 - TDD Results: per-task RED/GREEN/REFACTOR status
@@ -56,6 +58,11 @@ Read `.jade/STATE.md` and `.jade/ROADMAP.md`:
 **TDD Progress:**
 - Tasks complete: X of Y
 - Total tests: N passing
+
+**Phase Plan Status:**
+- Phase 1: [planned / revised / executing / complete]
+- Phase 2: [planned / revised / executing / complete]
+- ...
 </step>
 
 <step name="determine_routing">
@@ -63,12 +70,12 @@ Based on state, determine **ONE** next action:
 
 | Situation | Single Suggestion |
 |-----------|-------------------|
-| No plan exists | `/jade:plan` |
-| Plan awaiting approval | "Review and APPROVE plan to proceed" |
-| Plan approved, not executed | `/jade:apply [path]` |
-| Applied, not unified | `/jade:unify [path]` |
-| Unified, not verified | `/jade:verify` |
-| Loop complete, more phases | `/jade:plan` (next phase) |
+| No project initialized | `/jade:init` |
+| Init done, no plans | `/jade:plan` |
+| Plans approved, not executing | `/jade:apply` |
+| Phase applied, not unified | `/jade:unify` |
+| Unified, more phases remain | `/jade:apply` (next phase) or `/jade:plan --revise N` |
+| All phases unified | `/jade:verify` |
 | TDD gate failed (task blocked) | "Fix failing test and continue /jade:apply" |
 | GitHub remote unreachable | "Fix GitHub remote before /jade:apply" |
 | Blockers present | "Address blocker: [specific]" |
@@ -87,7 +94,12 @@ Milestone: [name] - [X]% complete
 ├── Phase 2: [name] ████████░░░░ 70%
 └── Phase 3: [name] ░░░░░░░░░░░░ Pending
 
-Current Loop: Phase 2, Plan 02-03
+Plans: approved [date]
+  Phase 1: complete
+  Phase 2: executing (revised)
+  Phase 3: planned
+
+Current Loop: Phase 2, Plan 02-01
 ┌─────────────────────────────────────┐
 │  PLAN ──▶ APPLY ──▶ UNIFY          │
 │    ✓        ✓        ○             │
@@ -99,7 +111,7 @@ TDD: 2/3 tasks complete | 14 tests passing
 PR: not yet
 
 ────────────────────────────────────────
-▶ NEXT: /jade:unify .jade/phases/02-features/02-03-PLAN.md
+▶ NEXT: /jade:unify .jade/phases/02-features/02-01-PLAN.md
   Close the loop, post summary to Jira, open PR.
 ────────────────────────────────────────
 ```
@@ -109,6 +121,7 @@ PR: not yet
 
 <success_criteria>
 - [ ] Overall progress displayed visually
+- [ ] Per-phase plan status shown (planned/revised/executing/complete)
 - [ ] Jira ticket status shown
 - [ ] GitHub branch and push status shown
 - [ ] TDD progress shown (tasks complete, tests passing)

@@ -45,6 +45,31 @@ Fix the issue and run /jade:apply again.
 </step>
 
 <!-- ════════════════════════════════════════════════ -->
+<!-- JIRA TICKET CREATION (if not yet created)        -->
+<!-- ════════════════════════════════════════════════ -->
+
+<step name="ensure_jira_ticket">
+Read `jira:` field from PLAN.md frontmatter.
+
+**If `jira:` is empty (phase ticket not yet created):**
+1. Source credentials: `source .jade/.env`
+2. Create Jira ticket via REST API:
+   ```bash
+   source .jade/.env
+   AUTH="Authorization: Basic $(echo -n "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" | base64)"
+   curl -s -X POST \
+     -H "$AUTH" -H "Content-Type: application/json" \
+     "$JIRA_BASE_URL/rest/api/3/issue" \
+     -d '{"fields":{"project":{"key":"'"$JIRA_PROJECT_KEY"'"},"summary":"[from objective]","issuetype":{"name":"Story"},"description":{"version":3,"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"[from ACs]"}]}]}}}'
+   ```
+3. Parse response for ticket key
+4. Write `jira:` to PLAN.md frontmatter
+5. Update STATE.md with ticket key
+
+**If `jira:` already has a value:** proceed with existing key.
+</step>
+
+<!-- ════════════════════════════════════════════════ -->
 <!-- BRANCH CREATION                                  -->
 <!-- ════════════════════════════════════════════════ -->
 
@@ -62,8 +87,18 @@ Read `jira:` field from PLAN.md frontmatter to get the ticket key.
 <!-- ════════════════════════════════════════════════ -->
 
 <step name="jira_start">
-1. Read `jira:` from PLAN.md frontmatter
-2. Transition Jira ticket: `To Do` → `In Progress` via Atlassian MCP
+1. Source credentials: `source .jade/.env`
+2. Transition Jira ticket `To Do` → `In Progress` via REST API:
+   ```bash
+   AUTH="Authorization: Basic $(echo -n "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" | base64)"
+   # Get available transitions
+   TRANSITIONS=$(curl -s -H "$AUTH" "$JIRA_BASE_URL/rest/api/3/issue/$JIRA_KEY/transitions")
+   # Find "In Progress" transition ID and POST it
+   TRANSITION_ID=$(echo "$TRANSITIONS" | jq -r '.transitions[] | select(.name | test("progress";"i")) | .id')
+   curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" \
+     "$JIRA_BASE_URL/rest/api/3/issue/$JIRA_KEY/transitions" \
+     -d '{"transition":{"id":"'"$TRANSITION_ID"'"}}'
+   ```
 3. Update STATE.md: `status: In Progress`
 </step>
 
@@ -141,6 +176,8 @@ After all three TDD phases pass for a task:
    - REFACTOR: cleanup applied
 
    Refs: [jira_key]
+
+   Co-Authored-By: Claude <noreply@anthropic.com>
    ```
 3. Push: `git push origin jade/[jira_key]`
 4. Print: "✅ Pushed task [N] to jade/[jira_key]"
@@ -151,14 +188,15 @@ After all three TDD phases pass for a task:
 <!-- ════════════════════════════════════════════════ -->
 
 <step name="jira_update">
-Post comment to Jira ticket via Atlassian MCP:
+Post comment to Jira ticket via REST API:
 
-```
-✅ Task [N] complete: [task name]
-RED ✓ | GREEN ✓ | REFACTOR ✓
-Tests added: X | All passing: Y
-Files: [list of changed files]
-Commit: [sha]
+```bash
+source .jade/.env
+AUTH="Authorization: Basic $(echo -n "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" | base64)"
+curl -s -X POST \
+  -H "$AUTH" -H "Content-Type: application/json" \
+  "$JIRA_BASE_URL/rest/api/3/issue/$JIRA_KEY/comment" \
+  -d '{"body":{"version":3,"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"✅ Task [N] complete: [task name]\nRED ✓ | GREEN ✓ | REFACTOR ✓\nTests added: X | All passing: Y\nFiles: [list]\nCommit: [sha]"}]}]}}'
 ```
 </step>
 
@@ -201,6 +239,22 @@ When a checkpoint task is reached (non-auto tasks):
 </step>
 
 <!-- ════════════════════════════════════════════════ -->
+<!-- PHASE TRANSITION                                 -->
+<!-- ════════════════════════════════════════════════ -->
+
+<step name="phase_transition">
+After all tasks in the current phase complete:
+
+1. Check ROADMAP.md: are there more phases?
+2. If yes:
+   - Present: "Phase [N] complete. Phase [N+1] plan exists."
+   - Ask: "Would you like to **review/revise** the plan for Phase [N+1], or **continue** as planned?"
+   - If "revise" → instruct user to run `/jade:plan --revise N+1`
+   - If "continue" → proceed to UNIFY for current phase
+3. If no more phases: proceed to UNIFY (final)
+</step>
+
+<!-- ════════════════════════════════════════════════ -->
 <!-- COMPLETION                                       -->
 <!-- ════════════════════════════════════════════════ -->
 
@@ -234,6 +288,7 @@ Update STATE.md loop position: APPLY ✓
 
 <success_criteria>
 - [ ] GitHub remote verified before any code written
+- [ ] Jira ticket exists (created if needed) before execution
 - [ ] Feature branch created and pushed
 - [ ] Jira ticket transitioned to In Progress
 - [ ] Every task completed RED → GREEN → REFACTOR in order
@@ -241,8 +296,9 @@ Update STATE.md loop position: APPLY ✓
 - [ ] No existing tests broken (GREEN gate)
 - [ ] Every task committed with structured message including jira key
 - [ ] Every task pushed to feature branch
-- [ ] Every task posted as Jira comment
+- [ ] Every task posted as Jira comment (via curl)
 - [ ] STATE.md TDD Results updated per task
 - [ ] Boundary files untouched
+- [ ] Phase transition offered if more phases exist
 - [ ] User informed of next action: /jade:unify
 </success_criteria>

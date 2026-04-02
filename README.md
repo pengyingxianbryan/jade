@@ -8,15 +8,15 @@ A Claude Code plugin that extends PAUL's Plan-Apply-Unify loop with Jira integra
 
 ## How JADE Extends PAUL
 
-JADE keeps everything PAUL does and adds three things:
+JADE keeps everything PAUL does and adds four things:
 
-### 1. Jira Integration via Atlassian MCP
+### 1. Jira Integration via REST API
 
-Jira is the external source of truth alongside local STATE.md. JADE creates tickets automatically after plan approval (plan-first mode) or links existing tickets (Jira-first mode). Every task completion posts a structured comment to Jira. Ticket status transitions mirror the JADE loop: To Do -> In Progress -> In Review -> Done.
+Jira is the external source of truth alongside local STATE.md. JADE creates tickets automatically after plan approval (plan-first mode) or links existing tickets (Jira-first mode). Every task completion posts a structured comment to Jira via REST API (`curl`). Ticket status transitions mirror the JADE loop: To Do -> In Progress -> In Review -> Done.
 
-### 2. GitHub Integration via GitHub MCP
+### 2. GitHub Integration via `gh` CLI
 
-JADE requires a verified GitHub remote before any code is written. It creates a feature branch (`jade/PROJ-123`) at the start of APPLY, commits and pushes after every task (not just at the end), and opens a Pull Request during UNIFY. Work is never lost if a session ends unexpectedly.
+JADE requires a verified GitHub remote before any code is written. It creates a feature branch (`jade/PROJ-123`) at the start of APPLY, commits and pushes after every task (not just at the end), and opens a Pull Request via `gh pr create` during UNIFY. Work is never lost if a session ends unexpectedly.
 
 ### 3. Premium Design Enforcement
 
@@ -31,24 +31,30 @@ Every task in APPLY runs through a strict RED -> GREEN -> REFACTOR cycle with ha
 
 Implementation code written before a failing test exists is deleted. No exceptions.
 
+### 5. Full Plan Upfront
+
+Unlike PAUL's sequential plan-one-execute-one approach, JADE generates plans for ALL phases during `/jade:plan` and presents them for a single APPROVE. Plans can be revised between phases as learnings emerge.
+
 ---
 
 ## The Loop
 
 ```
-PLAN ──▶ APPROVE ──▶ APPLY ──▶ UNIFY ──▶ VERIFY
-                      │         │         │
-                      TDD per   Jira +    UAT
-                      task      PR        gate
+INIT ──▶ PLAN ALL ──▶ APPROVE ──▶ [per-phase loop]
+                                   │
+                                   APPLY ──▶ UNIFY
+                                   (TDD)     (Jira + PR)
+                                   ↕
+                                   optional plan revision
 ```
 
 ### Jira Status Mapping
 
 | JADE Event | Jira Transition | GitHub Action |
 |---|---|---|
-| `/jade:plan` approved (plan-first) | Ticket auto-created -> `To Do` | -- |
+| `/jade:plan` approved (plan-first) | Phase 1 ticket created -> `To Do` | -- |
 | `/jade:plan PROJ-123` approved (Jira-first) | Existing ticket linked -> `To Do` | -- |
-| `/jade:apply` starts | `To Do` -> `In Progress` | Branch `jade/PROJ-123` created and pushed |
+| `/jade:apply` starts | Ticket created (if needed) -> `In Progress` | Branch `jade/PROJ-123` created and pushed |
 | Task completes (RED/GREEN/REFACTOR) | Comment posted with test results | Commit + push to `jade/PROJ-123` |
 | Task fails TDD gate | Comment: `Blocked: [reason]` | No push until gate passes |
 | `/jade:unify` runs | `In Progress` -> `In Review` | PR opened: `jade/PROJ-123` -> `main` |
@@ -58,7 +64,7 @@ PLAN ──▶ APPROVE ──▶ APPLY ──▶ UNIFY ──▶ VERIFY
 
 ## Installation
 
-### From GitHub (after pushing)
+### From GitHub
 
 ```bash
 # Register the marketplace
@@ -68,86 +74,65 @@ PLAN ──▶ APPROVE ──▶ APPLY ──▶ UNIFY ──▶ VERIFY
 /plugin install jade
 ```
 
+### Manual
+
+Clone the repo and point Claude Code at the `jade/` directory.
+
 ---
 
-## Setup Wizard
+## Setup
 
-On first run, JADE's SessionStart hook runs an interactive 8-step wizard:
+On first run in a project, JADE's SessionStart hook detects that `.jade/.configured` is missing and directs you to run `/jade:init`.
 
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  JADE — First-Run Setup
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+### `/jade:init` Flow
 
-Step 1 of 8 — Jira base URL
-Jira URL: https://yourcompany.atlassian.net
+1. **Credentials** — Checks `gh auth status`, collects Jira URL + project key + email + API token
+2. **Project overview** — Open-ended conversation: what you're building, who it's for, tech stack
+3. **Roadmap** — JADE proposes a multi-phase roadmap, you refine, approve
+4. **Phase directories** — Creates `.jade/phases/01-name/`, `02-name/`, etc.
 
-Step 2 of 8 — Jira project key
-Project key: ENG
-
-Step 3 of 8 — Atlassian credentials
-Atlassian email: you@yourcompany.com
-Atlassian API token: your_token_here
-
-Step 4 of 8 — Where to save credentials
-[1] Global  — ~/.zshrc
-[2] Local   — .env
-
-Step 5 of 8 — GitHub repository URL
-Repository URL: https://github.com/yourname/your-repo
-
-Step 6 of 8 — GitHub Personal Access Token
-GitHub PAT: ghp_your_token_here
-
-Step 7 of 8 — Default branch name
-Default branch: main
-
-Step 8 of 8 — Git identity
-Git user name: Your Name
-Git user email: you@yourcompany.com
-
-Verifying GitHub remote...
-✅ GitHub remote verified.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  ✅ JADE setup complete!
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
+Credentials are stored in `.jade/.env` (gitignored, repo-local). No global config changes.
 
 ---
 
 ## Plan Modes
 
-### Mode 1: Plan-First (Default)
+### Mode 1: Plan All (Default)
 
-No ticket number needed. JADE creates the Jira ticket automatically.
+No ticket number needed. JADE generates plans for all phases at once.
 
 ```
 /jade:plan
 
-# JADE asks planning questions:
-# - Who is this for?
-# - What problem does it solve?
-# - What does success look like?
-# ...
-
-# Drafts complete PLAN.md and presents it.
+# JADE reads ROADMAP.md and generates PLAN.md for every phase
+# Presents all plans for review
 
 # User says: APPROVE
 
 # JADE automatically:
-# 1. Creates Jira ticket PROJ-123
-# 2. Writes jira: PROJ-123 to PLAN.md
-# 3. Updates STATE.md
+# 1. Creates Jira ticket for Phase 1
+# 2. Writes jira key to Phase 1 PLAN.md
 
-✅ Plan approved.
-✅ Jira ticket created: PROJ-123
+✅ All plans approved.
+✅ Jira ticket created for Phase 1: PROJ-123
 ✅ Branch will be: jade/PROJ-123
 
-Run /jade:apply to begin implementation.
+Run /jade:apply to begin Phase 1.
 ```
 
-### Mode 2: Jira-First
+### Mode 2: Revise
+
+Update a plan for a specific phase based on learnings from completed phases.
+
+```
+/jade:plan --revise 3
+
+# JADE reads completed phase summaries
+# Revises Phase 3 plan incorporating learnings
+# Presents revised plan for APPROVE
+```
+
+### Mode 3: Jira-First
 
 For teams where a PM has already created the ticket. Pass any existing ticket key — the project prefix comes from your Jira project (e.g., `ENG-42`, `PLAT-7`, `FE-301`).
 
@@ -213,12 +198,12 @@ Jira comment posted with test results. STATE.md updated.
 
 `/jade:unify` does everything PAUL's unify does, plus:
 
-1. **Posts SUMMARY.md to Jira** as a structured comment
-2. **Transitions ticket** to `In Review`
-3. **Opens PR** via GitHub MCP with:
+1. **Posts SUMMARY.md to Jira** as a structured comment (via curl)
+2. **Transitions ticket** to `In Review` (via curl)
+3. **Opens PR** via `gh pr create` with:
    - Title: `[PROJ-123] Plan objective`
    - Body: Summary, Jira link, TDD results, changes, ACs
-4. **Creates child tickets** for any deferred issues
+4. **Creates child tickets** for any deferred issues (via curl)
 5. Writes PR URL to STATE.md
 
 ---
@@ -227,12 +212,13 @@ Jira comment posted with test results. STATE.md updated.
 
 | Command | What it does |
 |---|---|
-| `/jade:init` | Initialize JADE — creates .jade/, configures Jira + GitHub |
-| `/jade:plan` | Plan conversation -> APPROVE -> Jira ticket auto-created |
+| `/jade:init` | Initialize JADE — credentials, project overview, roadmap, phase directories |
+| `/jade:plan` | Generate plans for ALL phases, present for APPROVE |
+| `/jade:plan --revise N` | Revise plan for phase N based on learnings |
 | `/jade:plan PROJ-123` | Fetch existing ticket, pre-populate plan, APPROVE to link |
-| `/jade:apply` | Execute with TDD gate per task, commits + pushes per task |
+| `/jade:apply` | Execute with TDD gate per task, creates Jira ticket if needed, commits + pushes per task |
 | `/jade:unify` | Close loop: Jira summary, ticket transition, PR, deferred tickets |
-| `/jade:progress` | Smart status + ONE next action |
+| `/jade:progress` | Smart status + ONE next action across all phases |
 | `/jade:resume [path]` | Restore context including Jira/GitHub state |
 | `/jade:verify` | UAT gate — PASS transitions to Done |
 | `/jade:pause [reason]` | Create handoff, post pause to Jira |
@@ -265,13 +251,13 @@ jade/
 │   └── plugin.json            # Plugin metadata
 ├── hooks/
 │   ├── hooks.json             # SessionStart hook config
-│   └── setup.sh               # 8-step interactive wizard
+│   └── setup.sh               # Thin sentinel check — defers to /jade:init
 ├── commands/
-│   ├── jade-init.md           # Project initialization + credential setup
-│   ├── jade-plan.md           # Two-mode planning with approval gate
+│   ├── jade-init.md           # Project setup: credentials, overview, roadmap, phase dirs
+│   ├── jade-plan.md           # Three modes: Plan All, Revise, Jira-first
 │   ├── jade-apply.md          # TDD execution with GitHub/Jira integration
 │   ├── jade-unify.md          # Loop closure: Jira summary, PR, deferred tickets
-│   ├── jade-progress.md       # Smart status with Jira/GitHub/TDD context
+│   ├── jade-progress.md       # Smart status with multi-phase visibility
 │   ├── jade-resume.md         # Context restoration
 │   ├── jade-verify.md         # UAT confirmation gate
 │   ├── jade-research.md       # Topic research
@@ -299,7 +285,7 @@ jade/
 │       └── SKILL.md           # Premium frontend design enforcement
 ├── templates/
 │   ├── PLAN.md                # Plan template with jira: field
-│   ├── STATE.md               # State template with Jira/GitHub/TDD sections
+│   ├── STATE.md               # State template with Jira/GitHub/TDD/Plan Status sections
 │   ├── PROJECT.md             # Project context template
 │   ├── ROADMAP.md             # Phase structure template
 │   └── SUMMARY.md             # Completion documentation template
@@ -312,61 +298,29 @@ jade/
 
 ---
 
-## What Gets Written to ~/.claude.json
+## What Gets Written to `.jade/.env`
 
-The setup wizard merges (does not overwrite) two MCP server entries:
-
-```json
-{
-  "mcpServers": {
-    "atlassian": {
-      "type": "http",
-      "url": "https://mcp.atlassian.com/v1/mcp",
-      "headers": {
-        "Authorization": "Basic BASE64_OF_EMAIL_COLON_TOKEN"
-      }
-    },
-    "github": {
-      "type": "http",
-      "url": "https://api.githubcopilot.com/mcp",
-      "headers": {
-        "Authorization": "Bearer YOUR_GITHUB_PAT"
-      }
-    }
-  }
-}
-```
-
-## What Gets Written to Env Scope File
-
-Depending on scope choice (global = ~/.zshrc, local = .env):
+Credentials are stored repo-local, never globally:
 
 ```bash
-# jade start
-export JIRA_PROJECT_KEY="ENG"
-export JIRA_BASE_URL="https://yourcompany.atlassian.net"
-export ATLASSIAN_API_TOKEN="your_token"
-export ATLASSIAN_EMAIL="you@yourcompany.com"
-export GITHUB_REPO_URL="https://github.com/yourname/your-repo"
-export GITHUB_PAT="ghp_your_token"
-export GITHUB_DEFAULT_BRANCH="main"
-export GIT_USER_NAME="Your Name"
-export GIT_USER_EMAIL="you@yourcompany.com"
-# jade end
+JIRA_BASE_URL="https://yourcompany.atlassian.net"
+JIRA_PROJECT_KEY="ENG"
+ATLASSIAN_EMAIL="you@yourcompany.com"
+ATLASSIAN_API_TOKEN="your_token"
 ```
 
----
+`.jade/.env` is automatically added to `.gitignore` during init.
+
+GitHub authentication is handled by `gh auth login` — no token stored in JADE.
 
 ## How to Reconfigure
 
-Delete the sentinel file and restart Claude:
+Delete the sentinel file and run init again:
 
 ```bash
-rm ~/.claude/.jade-configured
-claude
+rm .jade/.configured
+/jade:init
 ```
-
-The setup wizard will run again on next session start.
 
 ---
 
@@ -376,5 +330,5 @@ MIT — see [LICENSE](LICENSE).
 
 ---
 
-*JADE — Jira -> Approval -> Driven Test -> Evaluation*
+*JADE v2.0 — Jira -> Approval -> Driven Test -> Evaluation*
 *Built on [PAUL](https://github.com/ChristopherKahler/paul) (Plan-Apply-Unify Loop) + [Superpowers TDD](https://github.com/obra/superpowers)*

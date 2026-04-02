@@ -41,13 +41,15 @@ Create `.jade/HANDOFF-{date}.md` with:
 </step>
 
 <step name="jira_comment">
-If Jira ticket exists in STATE.md, post comment via Atlassian MCP:
-```
-⏸️ Session paused: [reason or "session break"]
-Progress: [N]/[M] tasks complete
-Branch: jade/[jira_key]
-Last push: [timestamp]
-Resume with: /jade:resume
+If Jira ticket exists in STATE.md, post comment via REST API:
+
+```bash
+source .jade/.env
+AUTH="Authorization: Basic $(echo -n "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" | base64)"
+curl -s -X POST \
+  -H "$AUTH" -H "Content-Type: application/json" \
+  "$JIRA_BASE_URL/rest/api/3/issue/$JIRA_KEY/comment" \
+  -d '{"body":{"version":3,"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"⏸️ Session paused: [reason or session break]\nProgress: [N]/[M] tasks complete\nBranch: jade/[jira_key]\nLast push: [timestamp]\nResume with: /jade:resume"}]}]}}'
 ```
 </step>
 

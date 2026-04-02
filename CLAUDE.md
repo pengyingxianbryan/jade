@@ -4,50 +4,134 @@
 JADE = Jira -> Approval -> Driven Test -> Evaluation
 
 A Claude Code plugin that extends PAUL's Plan-Apply-Unify loop with:
-- Jira as external source of truth alongside local STATE.md (via Atlassian MCP)
-- GitHub as code remote with feature branches, per-task pushes, and auto-PR (via GitHub MCP)
+- Jira as external source of truth alongside local STATE.md (via REST API + curl)
+- GitHub as code remote with feature branches, per-task pushes, and auto-PR (via `gh` CLI + native git)
 - Hard human approval gate before any execution begins
 - Superpowers-style RED/GREEN/REFACTOR TDD enforcement per task
 - Premium frontend design enforcement via designer-uxui skill (Next.js, Tailwind, Motion)
 
-## Jira configuration
-- MCP endpoint: https://mcp.atlassian.com/v1/mcp
-- Auth: Basic (base64 of email:api_token)
-- Project key: set in JIRA_PROJECT_KEY env var
-- Credentials: set in ATLASSIAN_API_TOKEN and ATLASSIAN_EMAIL env vars
+## Credentials
 
-## GitHub configuration
-- MCP endpoint: https://api.githubcopilot.com/mcp
-- Auth: Bearer (GitHub PAT)
-- Repository: set in GITHUB_REPO_URL env var
-- Default branch: set in GITHUB_DEFAULT_BRANCH env var
+All credentials are stored repo-local in `.jade/.env`. Source this file before any API call:
+```bash
+source .jade/.env
+```
+
+**Required variables in `.jade/.env`:**
+```bash
+JIRA_BASE_URL="https://yourcompany.atlassian.net"
+JIRA_PROJECT_KEY="PROJ"
+ATLASSIAN_EMAIL="you@yourcompany.com"
+ATLASSIAN_API_TOKEN="your_atlassian_token"
+```
+
+**GitHub:** Uses `gh` CLI (authenticated via `gh auth login`). No PAT or token stored in JADE.
+
+## Jira REST API patterns
+
+All Jira operations use REST API v3 via `curl`. Always `source .jade/.env` first.
+
+**Auth header (reuse everywhere):**
+```bash
+AUTH="Authorization: Basic $(echo -n "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" | base64)"
+```
+
+### Create issue
+```bash
+curl -s -X POST \
+  -H "$AUTH" -H "Content-Type: application/json" \
+  "$JIRA_BASE_URL/rest/api/3/issue" \
+  -d '{"fields":{"project":{"key":"'"$JIRA_PROJECT_KEY"'"},"summary":"...","issuetype":{"name":"Story"},"description":{"version":3,"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"..."}]}]}}}'
+```
+Response: `{"key":"PROJ-123",...}`
+
+### Fetch issue
+```bash
+curl -s -H "$AUTH" "$JIRA_BASE_URL/rest/api/3/issue/PROJ-123"
+```
+
+### Transition issue (2-step)
+```bash
+# Step 1: Get available transitions
+curl -s -H "$AUTH" "$JIRA_BASE_URL/rest/api/3/issue/PROJ-123/transitions" | jq '.transitions[] | {id, name}'
+
+# Step 2: Post the transition using the correct ID
+curl -s -X POST \
+  -H "$AUTH" -H "Content-Type: application/json" \
+  "$JIRA_BASE_URL/rest/api/3/issue/PROJ-123/transitions" \
+  -d '{"transition":{"id":"TARGET_ID"}}'
+```
+
+### Add comment
+```bash
+curl -s -X POST \
+  -H "$AUTH" -H "Content-Type: application/json" \
+  "$JIRA_BASE_URL/rest/api/3/issue/PROJ-123/comment" \
+  -d '{"body":{"version":3,"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"..."}]}]}}'
+```
+
+### Create child/linked issue
+Same as create issue, add `"parent":{"key":"PROJ-123"}` to fields for subtask, or use `issuelinks` for relates-to.
+
+## GitHub patterns
+
+**PR creation (via `gh` CLI):**
+```bash
+gh pr create \
+  --title "[PROJ-123] Plan objective" \
+  --body "$(cat <<'EOF'
+## Summary
+...
+## Jira ticket
+$JIRA_BASE_URL/browse/PROJ-123
+## TDD Results
+...
+EOF
+)" \
+  --base main \
+  --head jade/PROJ-123
+```
+
+**All other git ops:** Native `git` CLI (branch, commit, push, status, remote). No wrapper needed.
 
 ## Mandatory workflow — always in this order
 
-1. `/jade:plan` — DEFAULT, no ticket number needed
-   Have planning conversation with user
-   Draft PLAN.md (objective, ACs, tasks, boundaries)
-   Present complete plan -> wait for APPROVE
-   **Auto-create Jira ticket after APPROVE** -> write key to PLAN.md and STATE.md automatically
-   User never types a ticket number
+1. `/jade:init` — Project setup
+   Collect credentials (stored in `.jade/.env`)
+   Conversational project overview
+   JADE recommends full multi-phase roadmap
+   User refines → JADE creates phase directories
+
+2. `/jade:plan` — Generate ALL phase plans
+   Draft PLAN.md for every phase in the roadmap
+   Present complete set → wait for APPROVE
+   After APPROVE: create Jira ticket for phase 1
+   Subsequent phase tickets created at each APPLY start
 
    OR `/jade:plan PROJ-123` — Jira-first mode for team workflows
-   Fetch existing ticket -> pre-populate PLAN.md -> APPROVE -> link ticket
+   Fetch existing ticket → pre-populate PLAN.md → APPROVE → link ticket
 
-2. `/jade:apply`
-   Verify GitHub remote is reachable (HARD GATE)
-   Create feature branch: jade/[jira_key]
-   For each task: RED -> GREEN -> REFACTOR
-   Commit and push after every task
-   Post task result to Jira after each task
-   Transition ticket: To Do -> In Progress
+   OR `/jade:plan --revise N` — Revise a single phase plan
+   Incorporate learnings from completed phases → APPROVE update
 
-3. `/jade:unify`
-   Write SUMMARY.md
-   Post summary to Jira as structured comment
-   Transition ticket: In Progress -> In Review
-   Create child tickets for deferred issues
-   Open PR via GitHub MCP
+3. For each phase:
+   a. `/jade:apply`
+      Verify GitHub remote is reachable (HARD GATE)
+      Create Jira ticket for this phase if not yet created
+      Create feature branch: jade/[jira_key]
+      For each task: RED -> GREEN -> REFACTOR
+      Commit and push after every task
+      Post task result to Jira after each task
+      Transition ticket: To Do -> In Progress
+
+   b. `/jade:unify`
+      Write SUMMARY.md
+      Post summary to Jira as structured comment
+      Transition ticket: In Progress -> In Review
+      Create child tickets for deferred issues
+      Open PR via `gh pr create`
+
+   c. (Optional) Revise next phase plan if earlier phases revealed new information
 
 4. `/jade:verify` (when ready for UAT)
    Show summary and PR link
@@ -59,11 +143,12 @@ A Claude Code plugin that extends PAUL's Plan-Apply-Unify loop with:
 - NEVER begin APPLY without user saying APPROVE
 - NEVER write a single line of implementation before the GitHub remote is verified reachable
 - NEVER write implementation before a failing test exists for that task
-- NEVER skip UNIFY — every plan must close with a summary
+- NEVER skip UNIFY — every phase must close with a summary
 - ALWAYS create a feature branch `jade/[jira_key]` before the first task in APPLY
 - ALWAYS push to the feature branch after every task — not just at UNIFY
-- ALWAYS post task results as Jira comments during APPLY
+- ALWAYS post task results as Jira comments during APPLY (via curl)
 - ALWAYS reference Jira ticket key in commit messages (e.g. feat(PROJ-123): task name)
-- ALWAYS open a PR via GitHub MCP during UNIFY
+- ALWAYS open a PR via `gh pr create` during UNIFY
+- ALWAYS `source .jade/.env` before any Jira API call
 - NEVER modify files listed in PLAN.md <boundaries> section
 - NEVER batch multiple tasks through RED phase together

@@ -11,10 +11,12 @@ Domain rules for JADE — enforced at all times during JADE operations.
 
 JADE must never create a Jira ticket, never begin APPLY, and never write implementation code without the user explicitly saying APPROVE after reviewing the complete plan. The word APPROVE (or clear equivalent) must appear in the conversation before any of these actions occur.
 
-After APPROVE is received in plan-first mode, JADE must immediately and automatically:
-1. Create the Jira ticket via Atlassian MCP — no further user input required
+In Plan All mode, APPROVE applies to the full set of phase plans. After APPROVE is received:
+1. Create the Jira ticket for phase 1 via Jira REST API (`curl`) — no further user input required
 2. Write the returned ticket key to PLAN.md frontmatter and STATE.md
 3. Confirm the ticket key to the user
+
+Subsequent phase tickets are created at the start of each phase's APPLY, not all at once.
 
 The user must never be asked to provide a ticket number in plan-first mode. JADE creates the ticket and handles the key internally.
 
@@ -30,7 +32,9 @@ If any existing test breaks during GREEN phase, STOP. Report exactly which tests
 
 ## Rule 3 — Jira Sync
 
-Every task completion during APPLY must result in a comment posted to the Jira ticket via Atlassian MCP. The comment must include: task name, TDD phase results (RED/GREEN/REFACTOR), tests added, total tests passing, files changed, and commit SHA.
+Every task completion during APPLY must result in a comment posted to the Jira ticket via REST API (`curl`). The comment must include: task name, TDD phase results (RED/GREEN/REFACTOR), tests added, total tests passing, files changed, and commit SHA.
+
+Always `source .jade/.env` before any Jira API call.
 
 Jira ticket status must reflect the actual JADE loop position at all times:
 - After PLAN APPROVE: `To Do` (or ticket just created)
@@ -40,9 +44,11 @@ Jira ticket status must reflect the actual JADE loop position at all times:
 
 ## Rule 4 — Loop Integrity
 
-UNIFY is mandatory. No plan is complete without a SUMMARY.md, a structured Jira comment, and a Pull Request. A session that ends without UNIFY is an orphan — STATE.md must record this and `/jade:resume` must surface it as the first action.
+The overall flow is: INIT → PLAN ALL → APPROVE → [per-phase: APPLY → UNIFY → optional revision]. No phase may skip UNIFY.
 
-The loop is: PLAN → APPLY → UNIFY. There are no shortcuts.
+UNIFY is mandatory for every phase. No phase is complete without a SUMMARY.md, a structured Jira comment, and a Pull Request. A session that ends without UNIFY is an orphan — STATE.md must record this and `/jade:resume` must surface it as the first action.
+
+Between phases, the plan for the next phase may be revised via `/jade:plan --revise N` to incorporate learnings.
 
 ## Rule 5 — Boundary Protection
 
@@ -60,3 +66,5 @@ If any check fails for any reason, APPLY must stop immediately and report the fa
 Every task completion must result in a `git push` to the feature branch. A task is not considered complete until BOTH the Jira comment is posted AND the push succeeds.
 
 The feature branch naming convention is `jade/[jira_key]` (e.g., `jade/PROJ-123`). This branch is created at the start of APPLY and all commits during APPLY go to this branch.
+
+PRs are created via `gh pr create` during UNIFY.
