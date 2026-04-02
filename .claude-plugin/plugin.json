@@ -6,9 +6,8 @@
     "name": "Bryan Phang",
     "email": "bryan@example.com"
   },
-  "homepage": "https://github.com/bryanphang/jade",
+  "homepage": "https://github.com/pengyingxianbryan/jade",
   "license": "MIT",
-  "skillsDir": "./skills",
-  "skills": ["tdd-gate"],
-  "commandsDir": "./commands"
+  "skills": "./skills/",
+  "commands": "./commands/"
 }
