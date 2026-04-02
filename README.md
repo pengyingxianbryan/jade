@@ -65,7 +65,7 @@ PLAN ──▶ APPROVE ──▶ APPLY ──▶ UNIFY ──▶ VERIFY
 /plugin marketplace add pengyingxianbryan/jade
 
 # Install the plugin
-/plugin install jade@jade
+/plugin install jade
 ```
 
 ### Manual
