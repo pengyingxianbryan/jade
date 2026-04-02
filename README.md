@@ -71,7 +71,7 @@ INIT ──▶ PLAN ALL ──▶ APPROVE ──▶ [per-phase loop]
 /plugin marketplace add pengyingxianbryan/jade
 
 # Install the plugin
-/plugin install jade
+/plugin install claude-pm
 ```
 
 ### Manual
