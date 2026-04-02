@@ -1,5 +1,5 @@
 {
-  "name": "jade-marketplace",
+  "name": "jade-pm",
   "description": "JADE — Jira → Approval → Driven Test → Evaluation. PAUL extended with Jira REST API, GitHub gh CLI, and Superpowers-style TDD enforcement.",
   "owner": {
     "name": "Bryan Phang"
