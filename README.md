@@ -62,7 +62,7 @@ PLAN ──▶ APPROVE ──▶ APPLY ──▶ UNIFY ──▶ VERIFY
 
 ```bash
 # Register the marketplace
-/plugin marketplace add YOUR_USERNAME/jade
+/plugin marketplace add pengyingxianbryan/jade
 
 # Install the plugin
 /plugin install jade@jade
