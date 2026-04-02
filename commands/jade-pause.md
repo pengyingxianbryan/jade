@@ -1,14 +1,16 @@
 ---
 name: jade:pause
-description: Create handoff file, post paused status to Jira, prepare for session break
+description: Create comprehensive handoff, post paused status to Jira, prepare for session break
 argument-hint: "[reason]"
 allowed-tools: [Read, Write, Bash, AskUserQuestion]
 ---
 
 <objective>
-Create a HANDOFF.md file capturing current context, post a pause comment to Jira, and update STATE.md for session continuity.
+Create a comprehensive handoff document capturing all context, post a pause comment to Jira, and update STATE.md for session continuity.
 
 **When to use:** Before ending a session, switching context, or when context limit is approaching.
+
+This command combines the old `/jade:pause` and `/jade:handoff` into one — every pause produces a full handoff.
 </objective>
 
 <context>
@@ -29,15 +31,52 @@ Read STATE.md for:
 </step>
 
 <step name="create_handoff">
-Create `.jade/HANDOFF-{date}.md` with:
-- Current loop position
-- Jira ticket key and status
-- GitHub branch name and last push timestamp
-- TDD results so far (which tasks complete)
-- What was last completed
-- What to do next
-- Key context needed to continue
-- Reason for pause (from $ARGUMENTS if provided)
+Create `.jade/HANDOFF-{date}.md` with comprehensive context:
+
+```markdown
+# JADE Session Handoff
+
+**Session:** {date}
+**Phase:** {current_phase}
+**Jira:** {ticket_key} — {status}
+**Branch:** jade/{ticket_key}
+**TDD:** {N}/{M} tasks complete
+
+---
+
+## Session Accomplishments
+{what was done this session}
+
+## Jira Context
+- Ticket: {key} — {status}
+- Comments posted: {N}
+- Last sync: {timestamp}
+
+## GitHub Context
+- Branch: jade/{key}
+- Commits this session: {N}
+- Last push: {timestamp}
+- PR: {URL or "not yet"}
+
+## TDD Progress
+{per-task RED/GREEN/REFACTOR status}
+
+## Decisions Made
+| Decision | Rationale | Impact |
+|----------|-----------|--------|
+
+## Open Questions
+{unresolved items}
+
+## Prioritized Next Actions
+| Priority | Action |
+|----------|--------|
+| 1 | {most important next step} |
+
+---
+*Handoff created: {timestamp}*
+*Resume: /jade:resume*
+```
 </step>
 
 <step name="jira_comment">
@@ -79,7 +118,9 @@ Resume: /jade:resume
 </process>
 
 <success_criteria>
-- [ ] HANDOFF.md created with complete context including Jira/GitHub state
+- [ ] Comprehensive HANDOFF.md created with Jira/GitHub/TDD context
+- [ ] Decisions and open questions captured
+- [ ] Prioritized next actions listed
 - [ ] Jira comment posted (if ticket exists)
 - [ ] STATE.md updated with session continuity
 - [ ] Resume instructions provided

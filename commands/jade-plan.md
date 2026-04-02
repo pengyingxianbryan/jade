@@ -1,18 +1,28 @@
 ---
 name: jade:plan
-description: Generate all phase plans, revise a single phase, or link an existing Jira ticket
-argument-hint: "[--revise N | ticket-key]"
+description: Plan, revise, fix, or modify the project roadmap
+argument-hint: "[--revise N | --fix N | --add-phase <desc> | --remove-phase N | ticket-key]"
 allowed-tools: [Read, Write, Glob, Bash, AskUserQuestion]
 ---
 
 <objective>
-Create executable plans for the project. Supports three modes:
+The single entry point for all planning and roadmap modifications. Supports six modes:
 
-- `/jade:plan` (no args) → **Plan All mode** — generate PLAN.md for every phase in the roadmap, present all for APPROVE
-- `/jade:plan --revise N` → **Revise mode** — update the plan for phase N based on learnings from completed phases
-- `/jade:plan PROJ-123` (ticket key) → **Jira-first mode** — link an existing Jira ticket to a single plan
+- `/jade:plan` (no args) → **Plan All mode** — generate PLAN.md for every phase, present all for APPROVE
+- `/jade:plan --revise N` → **Revise mode** — update the plan for phase N based on learnings
+- `/jade:plan --fix N` → **Fix mode** — create a fix plan from UAT issues for plan N
+- `/jade:plan --add-phase <description>` → **Add Phase** — append a new phase to the roadmap
+- `/jade:plan --remove-phase N` → **Remove Phase** — remove a future (not started) phase
+- `/jade:plan PROJ-123` (ticket key) → **Jira-first mode** — link an existing Jira ticket
 
 **When to use:** After `/jade:init` has created the roadmap and phase directories.
+
+**Built-in planning intelligence:** During Plan All and Revise modes, JADE automatically:
+- Surfaces its assumptions about architecture, tech choices, and risks (like the old `/jade:assumptions`)
+- Explores phase vision and goals through conversation (like the old `/jade:discuss`)
+- Identifies technical unknowns and researches options (like the old `/jade:discover`)
+
+These are not separate steps — they are woven into the planning conversation naturally.
 </objective>
 
 <context>
@@ -29,6 +39,9 @@ $ARGUMENTS
 Check $ARGUMENTS:
 - No argument → **Plan All mode**
 - `--revise N` → **Revise mode** for phase N
+- `--fix N` → **Fix mode** for plan N (e.g., `--fix 04-02`)
+- `--add-phase <description>` → **Add Phase mode**
+- `--remove-phase N` → **Remove Phase mode** for phase N
 - Matches `[A-Z]+-\d+` → **Jira-first mode**
 </step>
 
@@ -181,6 +194,64 @@ Present the plan:
 
    Run /jade:apply to begin implementation.
    ```
+</step>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- FIX MODE                                         -->
+<!-- ════════════════════════════════════════════════ -->
+
+<step name="fix_plan">
+**Only if Fix mode (`--fix N`, e.g., `--fix 04-02`).**
+
+1. Parse plan argument (e.g., "04-02")
+2. Find matching UAT.md file in phase directory (created by `/jade:verify` on FAIL)
+3. If not found: error — "No UAT issues found for plan {N}. Run /jade:verify first."
+4. Read Jira ticket key from the parent PLAN.md
+5. Parse each issue from UAT.md (ID, title, severity, steps to reproduce, AC reference)
+6. Create `.jade/phases/{phase-dir}/{plan}-FIX.md`:
+   - Frontmatter with `type: fix` and `jira:` from parent plan
+   - Objective referencing the parent Jira ticket
+   - One task per issue (group related minors)
+   - Boundaries: only fix reported issues, no scope creep
+   - Prioritize: Blocker → Major → Minor → Cosmetic
+7. Present fix plan → wait for APPROVE
+8. After APPROVE: "Run /jade:apply to execute fixes."
+</step>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- ADD PHASE MODE                                   -->
+<!-- ════════════════════════════════════════════════ -->
+
+<step name="add_phase">
+**Only if Add Phase mode (`--add-phase <description>`).**
+
+1. Read ROADMAP.md for current phase list
+2. Determine next available phase number
+3. Add phase to ROADMAP.md with:
+   - Name (from description)
+   - Goal
+   - Dependencies on existing phases
+   - Scope placeholder
+4. Create phase directory: `.jade/phases/{NN}-{name}/`
+5. Update STATE.md
+6. Print: "Phase {N} added: {name}. Run /jade:plan --revise {N} to create a detailed plan."
+</step>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- REMOVE PHASE MODE                                -->
+<!-- ════════════════════════════════════════════════ -->
+
+<step name="remove_phase">
+**Only if Remove Phase mode (`--remove-phase N`).**
+
+1. Validate phase exists in ROADMAP.md
+2. Validate phase has NOT started (cannot remove completed or in-progress phases)
+3. If started: STOP — "Cannot remove phase {N}: already {status}."
+4. Remove from ROADMAP.md
+5. Clean up phase directory if empty
+6. Renumber subsequent phases in ROADMAP.md
+7. Update STATE.md
+8. Print: "Phase {N} removed. Subsequent phases renumbered."
 </step>
 
 <!-- ════════════════════════════════════════════════ -->

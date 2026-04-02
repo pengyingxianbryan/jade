@@ -208,37 +208,39 @@ Jira comment posted with test results. STATE.md updated.
 
 ---
 
-## Command Reference
+## Command Reference — 10 Commands
 
 | Command | What it does |
 |---|---|
-| `/jade:init` | Initialize JADE — credentials, project overview, roadmap, phase directories |
-| `/jade:plan` | Generate plans for ALL phases, present for APPROVE |
-| `/jade:plan --revise N` | Revise plan for phase N based on learnings |
-| `/jade:plan PROJ-123` | Fetch existing ticket, pre-populate plan, APPROVE to link |
-| `/jade:apply` | Execute with TDD gate per task, creates Jira ticket if needed, commits + pushes per task |
-| `/jade:unify` | Close loop: Jira summary, ticket transition, PR, deferred tickets |
-| `/jade:progress` | Smart status + ONE next action across all phases |
-| `/jade:resume [path]` | Restore context including Jira/GitHub state |
-| `/jade:verify` | UAT gate — PASS transitions to Done |
-| `/jade:pause [reason]` | Create handoff, post pause to Jira |
-| `/jade:handoff [context]` | Comprehensive handoff with Jira/GitHub/TDD context |
-| `/jade:research <topic>` | Deploy research subagents |
-| `/jade:research-phase <N>` | Research unknowns for a phase |
-| `/jade:discover <topic>` | Explore options before planning |
-| `/jade:discuss <phase>` | Articulate phase vision |
-| `/jade:assumptions <phase>` | Surface Claude's assumptions |
-| `/jade:consider-issues` | Triage deferred issues, create Jira tickets |
-| `/jade:plan-fix` | Plan fixes for UAT issues |
-| `/jade:milestone <name>` | Create new milestone |
-| `/jade:complete-milestone` | Archive and tag milestone |
-| `/jade:discuss-milestone` | Explore next milestone vision |
-| `/jade:add-phase <desc>` | Add phase to roadmap |
-| `/jade:remove-phase <N>` | Remove future phase |
-| `/jade:map-codebase` | Generate codebase overview |
-| `/jade:flows` | Configure skill requirements |
-| `/jade:config` | View/modify JADE settings |
-| `/jade:help` | Show command reference |
+| `/jade:init` | Set up project — credentials, overview, roadmap, phase directories |
+| `/jade:plan` | Plan all phases, revise, fix UAT issues, or modify roadmap |
+| `/jade:apply` | Execute with TDD (RED/GREEN/REFACTOR), commits + pushes per task |
+| `/jade:unify` | Close loop — Jira summary, PR, triage deferred issues |
+| `/jade:verify` | UAT gate — PASS transitions to Done, FAIL captures issues |
+| `/jade:progress` | Status across all phases + ONE next action |
+| `/jade:pause` | Full handoff + Jira comment + session continuity |
+| `/jade:resume` | Restore context from STATE.md and handoffs |
+| `/jade:research` | Research topic, phase unknowns, or map codebase |
+| `/jade:help` | Command reference |
+
+### `/jade:plan` arguments
+
+| Argument | Mode |
+|---|---|
+| (none) | **Plan All** — generate plans for every phase |
+| `--revise N` | **Revise** — update plan for phase N |
+| `--fix N` | **Fix** — create fix plan from UAT issues |
+| `--add-phase <desc>` | **Add Phase** — append to roadmap |
+| `--remove-phase N` | **Remove Phase** — remove future phase |
+| `PROJ-123` | **Jira-first** — link existing ticket |
+
+### `/jade:research` arguments
+
+| Argument | Mode |
+|---|---|
+| `<topic>` | Research a specific topic |
+| `phase N` | Identify and research unknowns for phase N |
+| `codebase` | Map the existing codebase |
 
 ---
 
@@ -252,31 +254,16 @@ jade/
 ├── hooks/
 │   ├── hooks.json             # SessionStart hook config
 │   └── setup.sh               # Thin sentinel check — defers to /jade:init
-├── commands/
+├── commands/                   # 10 commands total
 │   ├── jade-init.md           # Project setup: credentials, overview, roadmap, phase dirs
-│   ├── jade-plan.md           # Three modes: Plan All, Revise, Jira-first
+│   ├── jade-plan.md           # Plan all / revise / fix / add-phase / remove-phase / Jira-first
 │   ├── jade-apply.md          # TDD execution with GitHub/Jira integration
-│   ├── jade-unify.md          # Loop closure: Jira summary, PR, deferred tickets
-│   ├── jade-progress.md       # Smart status with multi-phase visibility
-│   ├── jade-resume.md         # Context restoration
+│   ├── jade-unify.md          # Loop closure: Jira summary, PR, triage deferred issues
 │   ├── jade-verify.md         # UAT confirmation gate
-│   ├── jade-research.md       # Topic research
-│   ├── jade-research-phase.md # Phase unknowns research
-│   ├── jade-milestone.md      # Milestone creation
-│   ├── jade-complete-milestone.md
-│   ├── jade-discuss-milestone.md
-│   ├── jade-discover.md       # Technical discovery
-│   ├── jade-discuss.md        # Phase vision
-│   ├── jade-assumptions.md    # Surface assumptions
-│   ├── jade-handoff.md        # Comprehensive handoff
-│   ├── jade-pause.md          # Session pause with Jira comment
-│   ├── jade-config.md         # Configuration management
-│   ├── jade-map-codebase.md   # Codebase analysis
-│   ├── jade-flows.md          # Skill configuration
-│   ├── jade-consider-issues.md # Issue triage with Jira ticket creation
-│   ├── jade-plan-fix.md       # UAT fix planning
-│   ├── jade-add-phase.md      # Add roadmap phase
-│   ├── jade-remove-phase.md   # Remove roadmap phase
+│   ├── jade-progress.md       # Smart status with multi-phase visibility
+│   ├── jade-pause.md          # Full handoff + Jira comment
+│   ├── jade-resume.md         # Context restoration
+│   ├── jade-research.md       # Research topic / phase / codebase
 │   └── jade-help.md           # Command reference
 ├── skills/
 │   ├── tdd-gate/

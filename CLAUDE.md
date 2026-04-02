@@ -138,6 +138,21 @@ EOF
    User types PASS or FAIL
    On PASS: transition ticket In Review -> Done
 
+## 10 commands — that's it
+
+| Command | What it does |
+|---|---|
+| `/jade:init` | Credentials, project overview, roadmap, phase directories |
+| `/jade:plan` | Plan all / revise / fix / add-phase / remove-phase / Jira-first |
+| `/jade:apply` | Execute with TDD, Jira ticket creation, git push per task |
+| `/jade:unify` | Summary, Jira post, PR, triage deferred issues |
+| `/jade:verify` | UAT gate — PASS or FAIL |
+| `/jade:progress` | Status + one next action |
+| `/jade:pause` | Full handoff + Jira comment |
+| `/jade:resume` | Restore context |
+| `/jade:research` | Research topic / phase N / codebase |
+| `/jade:help` | Command reference |
+
 ## Hard rules — no exceptions
 
 - NEVER begin APPLY without user saying APPROVE

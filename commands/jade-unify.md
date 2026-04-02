@@ -126,21 +126,32 @@ Update STATE.md: `pr: [PR URL]`
 <!-- DEFERRED ISSUES → NEW TICKETS                    -->
 <!-- ════════════════════════════════════════════════ -->
 
-<step name="deferred_tickets">
-For each deferred issue captured during reconciliation:
+<step name="triage_deferred_issues">
+**Triage all deferred issues** (absorbs the old `/jade:consider-issues` command):
 
-Create a new Jira ticket via REST API:
-
-```bash
-source .jade/.env
-AUTH="Authorization: Basic $(echo -n "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" | base64)"
-curl -s -X POST \
-  -H "$AUTH" -H "Content-Type: application/json" \
-  "$JIRA_BASE_URL/rest/api/3/issue" \
-  -d '{"fields":{"project":{"key":"'"$JIRA_PROJECT_KEY"'"},"summary":"[Deferred from [jira_key]] [issue description]","issuetype":{"name":"Task"},"labels":["deferred"]}}'
-```
-
-Report all created ticket keys to the user.
+1. Collect deferred issues from:
+   - Issues discovered during reconciliation (this session)
+   - `.jade/ISSUES.md` (if exists — accumulated from prior phases)
+   - Phase-scoped UAT files
+2. For each issue, analyze against current codebase:
+   - Has it been resolved by subsequent work?
+   - Is it urgent enough to address now?
+   - Can it wait for a future phase?
+3. Present categorized report to user:
+   - **Resolved** — already fixed by other work (mark as closed)
+   - **Promote** — create Jira ticket now
+   - **Defer** — keep for future consideration
+4. For promoted issues, create Jira tickets via REST API:
+   ```bash
+   source .jade/.env
+   AUTH="Authorization: Basic $(echo -n "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" | base64)"
+   curl -s -X POST \
+     -H "$AUTH" -H "Content-Type: application/json" \
+     "$JIRA_BASE_URL/rest/api/3/issue" \
+     -d '{"fields":{"project":{"key":"'"$JIRA_PROJECT_KEY"'"},"summary":"[Deferred from [jira_key]] [issue description]","issuetype":{"name":"Task"},"labels":["deferred"]}}'
+   ```
+5. Update ISSUES.md with triage results
+6. Report all created ticket keys to the user
 </step>
 
 <!-- ════════════════════════════════════════════════ -->
