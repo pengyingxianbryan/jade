@@ -68,7 +68,7 @@ INIT ──▶ PLAN ALL ──▶ APPROVE ──▶ [per-phase loop]
 
 ```bash
 # Register the marketplace
-/plugin marketplace add pengyingxianbryan/jade
+/plugin marketplace add pengyingxianbryan/claude-pm
 
 # Install the plugin
 /plugin install claude-pm
