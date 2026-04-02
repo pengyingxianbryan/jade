@@ -1,0 +1,22 @@
+{
+  "name": "jade-marketplace",
+  "description": "JADE — Jira → Approval → Driven Test → Evaluation. PAUL extended with Jira MCP integration, GitHub MCP integration, and Superpowers-style TDD enforcement.",
+  "owner": {
+    "name": "Bryan Phang",
+    "email": "bryan@example.com"
+  },
+  "plugins": [
+    {
+      "name": "jade",
+      "description": "PAUL extended with Jira MCP, GitHub MCP, human approval gate, and RED/GREEN/REFACTOR TDD enforcement per task.",
+      "version": "1.0.0",
+      "source": "./",
+      "author": {
+        "name": "Bryan Phang",
+        "email": "bryan@example.com"
+      },
+      "homepage": "https://github.com/bryanphang/jade",
+      "category": "productivity"
+    }
+  ]
+}

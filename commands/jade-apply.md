@@ -1,0 +1,248 @@
+---
+name: jade:apply
+description: Execute plan with GitHub gate + RED/GREEN/REFACTOR TDD enforcement per task
+argument-hint: "[plan-path]"
+allowed-tools: [Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion]
+---
+
+<objective>
+Execute an approved PLAN.md file with strict TDD enforcement and GitHub integration.
+
+**When to use:** After PLAN phase complete and plan is approved (APPROVE received).
+
+Every task runs through RED → GREEN → REFACTOR with hard gates. Every task commits and pushes. Every task posts results to Jira.
+</objective>
+
+<context>
+Plan path: $ARGUMENTS
+
+@.jade/STATE.md
+</context>
+
+<process>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- GITHUB GATE — HARD                               -->
+<!-- ════════════════════════════════════════════════ -->
+
+<step name="github_gate" priority="first">
+**Before writing a single line of code, verify GitHub remote:**
+
+1. Run `git remote -v` — confirm origin is set to the configured repo URL
+2. Run `git ls-remote origin HEAD` — confirm remote is reachable
+3. Run `git status` — confirm working tree is clean or on correct branch
+
+**If ANY check fails: STOP immediately.**
+Print exactly what failed. Do not write a single line of code.
+
+```
+❌ GitHub gate failed: [specific error]
+
+[Diagnostic info]
+
+Fix the issue and run /jade:apply again.
+```
+</step>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- BRANCH CREATION                                  -->
+<!-- ════════════════════════════════════════════════ -->
+
+<step name="create_branch">
+Read `jira:` field from PLAN.md frontmatter to get the ticket key.
+
+1. Create feature branch: `git checkout -b jade/[jira_key]`
+2. Push branch: `git push -u origin jade/[jira_key]`
+3. Update STATE.md: `branch: jade/[jira_key]`
+4. Print: "✅ Branch jade/[jira_key] created and pushed. Beginning TDD loop."
+</step>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- JIRA TRANSITION                                  -->
+<!-- ════════════════════════════════════════════════ -->
+
+<step name="jira_start">
+1. Read `jira:` from PLAN.md frontmatter
+2. Transition Jira ticket: `To Do` → `In Progress` via Atlassian MCP
+3. Update STATE.md: `status: In Progress`
+</step>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- VALIDATE PLAN                                    -->
+<!-- ════════════════════════════════════════════════ -->
+
+<step name="validate_plan">
+1. Confirm plan file exists at $ARGUMENTS path (or find current plan from STATE.md)
+2. Error if not found: "Plan not found: {path}"
+3. Derive SUMMARY path (replace PLAN.md with SUMMARY.md)
+4. If SUMMARY exists: "Plan already executed. SUMMARY: {path}"
+5. Read all tasks from `<tasks>` section
+6. Read `<boundaries>` — these files are OFF LIMITS during execution
+</step>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- TDD LOOP — PER TASK                              -->
+<!-- ════════════════════════════════════════════════ -->
+
+<step name="tdd_loop">
+**For each `<task>` in the plan, execute in strict order:**
+
+```
+─── Task [N]: [task name] ──────────────────────────────
+
+RED phase
+  1. Identify test file for this task from <files> field
+  2. Write the failing test. Touch ONLY test files.
+  3. Run: [test command from <verify> field]
+  4. Confirm output shows FAIL for the new test
+
+  GATE: If new test passes before implementation → STOP.
+        This means either the test is wrong or the feature already exists.
+        Report to user and wait for instruction. Do not proceed.
+
+GREEN phase
+  5. Write minimal implementation. Touch ONLY implementation files.
+  6. Run: [test command from <verify> field]
+  7. Confirm ALL tests pass — new and existing.
+
+  GATE: If any existing test breaks → STOP.
+        Report exactly which tests broke and why. Do not proceed.
+
+REFACTOR phase
+  8. Clean up implementation. No new behaviour introduced.
+  9. Run: [test command from <verify> field]
+  10. Confirm still all green.
+
+  GATE: If any test fails after refactor → STOP.
+        Undo refactor changes and report.
+```
+
+**BOUNDARY CHECK:** Before writing any file, verify it is NOT listed in `<boundaries>` DO NOT CHANGE section. If it is, STOP and report.
+
+**IMPLEMENTATION-BEFORE-TEST CHECK:** If implementation code for a task exists before the failing test is written, DELETE IT. Start clean. This is not negotiable.
+
+**DESIGN QUALITY CHECK:** If the task involves frontend UI (components, pages, layouts, animations), activate the `designer-uxui` skill from `skills/designer-uxui/SKILL.md`. During REFACTOR phase, run the skill's Review Checklist against all UI code produced. Violations (wrong easing, missing reduced-motion, stacked glass elements, etc.) must be fixed before the task is marked complete.
+</step>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- COMMIT & PUSH — PER TASK                         -->
+<!-- ════════════════════════════════════════════════ -->
+
+<step name="commit_push">
+After all three TDD phases pass for a task:
+
+1. Stage changes: `git add -A`
+2. Commit with structured message:
+   ```
+   feat([jira_key]): task [N] — [task name]
+
+   - RED: [test file] — X tests added, confirmed failing
+   - GREEN: [impl file] — all X tests passing
+   - REFACTOR: cleanup applied
+
+   Refs: [jira_key]
+   ```
+3. Push: `git push origin jade/[jira_key]`
+4. Print: "✅ Pushed task [N] to jade/[jira_key]"
+</step>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- JIRA UPDATE — PER TASK                           -->
+<!-- ════════════════════════════════════════════════ -->
+
+<step name="jira_update">
+Post comment to Jira ticket via Atlassian MCP:
+
+```
+✅ Task [N] complete: [task name]
+RED ✓ | GREEN ✓ | REFACTOR ✓
+Tests added: X | All passing: Y
+Files: [list of changed files]
+Commit: [sha]
+```
+</step>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- STATE UPDATE — PER TASK                          -->
+<!-- ════════════════════════════════════════════════ -->
+
+<step name="state_update">
+Append to STATE.md TDD Results section:
+```
+task_[N]: RED ✓ | GREEN ✓ | REFACTOR ✓ | tests_added: X | passing: Y
+```
+
+Update `last_push:` timestamp in GitHub section.
+</step>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- CHECKPOINT HANDLING                               -->
+<!-- ════════════════════════════════════════════════ -->
+
+<step name="handle_checkpoints">
+When a checkpoint task is reached (non-auto tasks):
+
+**checkpoint:decision**
+- Present decision context and options
+- Wait for user selection
+- Record decision
+- Continue execution
+
+**checkpoint:human-verify**
+- Present what was built
+- Present verification steps
+- Wait for "approved" or issue description
+- Continue execution
+
+**checkpoint:human-action**
+- Present required action
+- Wait for "done" confirmation
+- Continue execution
+</step>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- COMPLETION                                       -->
+<!-- ════════════════════════════════════════════════ -->
+
+<step name="complete">
+After all tasks complete:
+
+```
+════════════════════════════════════════
+APPLY COMPLETE
+════════════════════════════════════════
+
+All [N] tasks complete.
+Branch: jade/[jira_key]
+Commits: [N] pushed
+Tests: [total] passing
+
+TDD Results:
+  task_1: RED ✓ | GREEN ✓ | REFACTOR ✓
+  task_2: RED ✓ | GREEN ✓ | REFACTOR ✓
+
+────────────────────────────────────────
+▶ NEXT: /jade:unify
+  Close the loop, post summary to Jira, open PR.
+────────────────────────────────────────
+```
+
+Update STATE.md loop position: APPLY ✓
+</step>
+
+</process>
+
+<success_criteria>
+- [ ] GitHub remote verified before any code written
+- [ ] Feature branch created and pushed
+- [ ] Jira ticket transitioned to In Progress
+- [ ] Every task completed RED → GREEN → REFACTOR in order
+- [ ] No test passed before implementation (RED gate)
+- [ ] No existing tests broken (GREEN gate)
+- [ ] Every task committed with structured message including jira key
+- [ ] Every task pushed to feature branch
+- [ ] Every task posted as Jira comment
+- [ ] STATE.md TDD Results updated per task
+- [ ] Boundary files untouched
+- [ ] User informed of next action: /jade:unify
+</success_criteria>
