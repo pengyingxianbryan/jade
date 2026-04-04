@@ -90,6 +90,7 @@ Then [outcome]
 
 <task type="auto">
   <name>Task 1: [Action-oriented name]</name>
+  <discipline>frontend | backend | fullstack | devops</discipline>
   <files>path/to/file.ext, another/file.ext</files>
   <action>
     [Specific implementation instructions]
@@ -103,6 +104,7 @@ Then [outcome]
 
 <task type="auto">
   <name>Task 2: [Action-oriented name]</name>
+  <discipline>frontend | backend | fullstack | devops</discipline>
   <files>path/to/file.ext</files>
   <action>[Specific implementation]</action>
   <verify>[Command or check]</verify>
@@ -191,6 +193,7 @@ After completion, create `.jade/phases/XX-name/{phase}-{plan}-SUMMARY.md`
 
 Every `auto` task MUST have:
 - `<name>` - Action-oriented, describes outcome
+- `<discipline>` - `frontend` | `backend` | `fullstack` | `devops` — determines Jira label and assignee context
 - `<files>` - Which files created/modified
 - `<action>` - Specific implementation (what to do, what to avoid)
 - `<verify>` - How to prove it worked (command, check)

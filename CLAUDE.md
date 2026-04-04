@@ -70,8 +70,36 @@ curl -s -X POST \
   -d '{"body":{"version":3,"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"..."}]}]}}'
 ```
 
-### Create child/linked issue
-Same as create issue, add `"parent":{"key":"PROJ-123"}` to fields for subtask, or use `issuelinks` for relates-to.
+### Create subtask under parent Story
+```bash
+curl -s -X POST \
+  -H "$AUTH" -H "Content-Type: application/json" \
+  "$JIRA_BASE_URL/rest/api/3/issue" \
+  -d '{
+    "fields": {
+      "project": {"key": "'"$JIRA_PROJECT_KEY"'"},
+      "parent": {"key": "PROJ-123"},
+      "summary": "Task N: [task name]",
+      "issuetype": {"name": "Subtask"},
+      "labels": ["jade-managed", "frontend"],
+      "description": {
+        "version": 3, "type": "doc",
+        "content": [
+          {"type": "heading", "attrs": {"level": 3}, "content": [{"type": "text", "text": "Implementation"}]},
+          {"type": "paragraph", "content": [{"type": "text", "text": "[action details]"}]},
+          {"type": "heading", "attrs": {"level": 3}, "content": [{"type": "text", "text": "Acceptance Criteria"}]},
+          {"type": "paragraph", "content": [{"type": "text", "text": "[done criteria]"}]},
+          {"type": "heading", "attrs": {"level": 3}, "content": [{"type": "text", "text": "Files"}]},
+          {"type": "paragraph", "content": [{"type": "text", "text": "[file list]"}]}
+        ]
+      }
+    }
+  }'
+```
+Response: `{"key":"PROJ-124",...}`
+
+### Create linked issue (relates-to)
+Use `issuelinks` field for non-parent relationships.
 
 ## GitHub patterns
 
@@ -103,10 +131,12 @@ EOF
    User refines → JADE creates phase directories
 
 2. `/jade:plan` — Generate ALL phase plans
-   Draft PLAN.md for every phase in the roadmap
+   Draft PLAN.md for every phase in the roadmap (each task tagged with discipline: frontend|backend|fullstack|devops)
    Present complete set → wait for APPROVE
-   After APPROVE: create Jira tickets for ALL phases upfront
-   Full backlog visible in Jira immediately — system picks up tickets as phases complete
+   After APPROVE: create Jira ticket hierarchy for ALL phases upfront:
+     - Parent Story per phase (rich description: objective, ACs in Given/When/Then, scope)
+     - Subtask per task (description: implementation, files, ACs, verification + discipline label)
+   Full backlog with proper hierarchy visible in Jira immediately
 
    OR `/jade:plan PROJ-123` — Jira-first mode for team workflows
    Fetch existing ticket → pre-populate PLAN.md → APPROVE → link ticket
@@ -117,12 +147,12 @@ EOF
 3. For each phase:
    a. `/jade:apply`
       Verify GitHub remote is reachable (HARD GATE)
-      Jira ticket already exists from plan phase (fallback: create if missing)
+      Jira parent Story + subtasks already exist from plan phase (fallback: create if missing)
       Create feature branch: jade/[jira_key]
       For each task: RED -> GREEN -> REFACTOR
       Commit and push after every task
-      Post task result to Jira after each task
-      Transition ticket: To Do -> In Progress
+      Transition subtask to Done + post comment to parent Story after each task
+      Transition parent ticket: To Do -> In Progress
 
    b. `/jade:unify`
       Write SUMMARY.md

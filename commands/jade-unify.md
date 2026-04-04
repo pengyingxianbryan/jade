@@ -141,14 +141,37 @@ Update STATE.md: `pr: [PR URL]`
    - **Resolved** — already fixed by other work (mark as closed)
    - **Promote** — create Jira ticket now
    - **Defer** — keep for future consideration
-4. For promoted issues, create Jira tickets via REST API:
+4. For promoted issues, create Jira tickets with rich content via REST API:
    ```bash
    source .jade/.env
    AUTH="Authorization: Basic $(echo -n "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" | base64)"
    curl -s -X POST \
      -H "$AUTH" -H "Content-Type: application/json" \
      "$JIRA_BASE_URL/rest/api/3/issue" \
-     -d '{"fields":{"project":{"key":"'"$JIRA_PROJECT_KEY"'"},"summary":"[Deferred from [jira_key]] [issue description]","issuetype":{"name":"Task"},"labels":["deferred"]}}'
+     -d '{
+       "fields": {
+         "project": {"key": "'"$JIRA_PROJECT_KEY"'"},
+         "summary": "[Deferred from [jira_key]] [issue description]",
+         "issuetype": {"name": "Task"},
+         "labels": ["deferred", "jade-managed", "[frontend|backend|fullstack if determinable]"],
+         "description": {
+           "version": 3,
+           "type": "doc",
+           "content": [
+             {"type": "heading", "attrs": {"level": 3}, "content": [{"type": "text", "text": "Context"}]},
+             {"type": "paragraph", "content": [{"type": "text", "text": "Discovered during Phase [N] ([jira_key]) implementation. [Why it was deferred — scope, risk, dependency]"}]},
+             {"type": "heading", "attrs": {"level": 3}, "content": [{"type": "text", "text": "Description"}]},
+             {"type": "paragraph", "content": [{"type": "text", "text": "[Detailed description of the issue or feature gap]"}]},
+             {"type": "heading", "attrs": {"level": 3}, "content": [{"type": "text", "text": "Acceptance Criteria"}]},
+             {"type": "paragraph", "content": [{"type": "text", "text": "- [What done looks like for this deferred item]\n- [Verification steps]"}]},
+             {"type": "heading", "attrs": {"level": 3}, "content": [{"type": "text", "text": "Affected Files"}]},
+             {"type": "paragraph", "content": [{"type": "text", "text": "[Files related to this issue, if known]"}]},
+             {"type": "heading", "attrs": {"level": 3}, "content": [{"type": "text", "text": "Origin"}]},
+             {"type": "paragraph", "content": [{"type": "text", "text": "Parent: [jira_key] | Phase: [N] | PR: [PR URL if available]"}]}
+           ]
+         }
+       }
+     }'
    ```
 5. Update ISSUES.md with triage results
 6. Report all created ticket keys to the user

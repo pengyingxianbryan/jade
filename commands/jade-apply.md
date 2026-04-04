@@ -55,20 +55,55 @@ Read `jira:` field from PLAN.md frontmatter.
 
 **If `jira:` is empty (fallback — e.g., plan was revised or added after initial approval):**
 1. Source credentials: `source .jade/.env`
-2. Create Jira ticket via REST API:
+2. Create parent Story ticket with rich ADF description (same structure as jade-plan `plan_all_after_approve`):
    ```bash
    source .jade/.env
    AUTH="Authorization: Basic $(echo -n "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" | base64)"
    curl -s -X POST \
      -H "$AUTH" -H "Content-Type: application/json" \
      "$JIRA_BASE_URL/rest/api/3/issue" \
-     -d '{"fields":{"project":{"key":"'"$JIRA_PROJECT_KEY"'"},"summary":"[from objective]","issuetype":{"name":"Story"},"description":{"version":3,"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"[from ACs]"}]}]}}}'
+     -d '{
+       "fields": {
+         "project": {"key": "'"$JIRA_PROJECT_KEY"'"},
+         "summary": "[Phase N] [from objective — first sentence]",
+         "issuetype": {"name": "Story"},
+         "labels": ["jade-managed"],
+         "description": {
+           "version": 3, "type": "doc",
+           "content": [
+             ... rich ADF with Objective, Acceptance Criteria (Given/When/Then in codeBlocks), Scope & Boundaries, Tasks count ...
+           ]
+         }
+       }
+     }'
    ```
-3. Parse response for ticket key
-4. Write `jira:` to PLAN.md frontmatter
-5. Update STATE.md with ticket key
+3. Parse response for parent ticket key
+4. Create subtask tickets for each task in `<tasks>` section:
+   ```bash
+   curl -s -X POST \
+     -H "$AUTH" -H "Content-Type: application/json" \
+     "$JIRA_BASE_URL/rest/api/3/issue" \
+     -d '{
+       "fields": {
+         "project": {"key": "'"$JIRA_PROJECT_KEY"'"},
+         "parent": {"key": "[parent Story key]"},
+         "summary": "Task [N]: [task name]",
+         "issuetype": {"name": "Subtask"},
+         "labels": ["jade-managed", "[discipline from <discipline> field]"],
+         "description": {
+           "version": 3, "type": "doc",
+           "content": [
+             ... Discipline, Implementation (<action>), Files (<files>), Acceptance Criteria (<done>), Verification (<verify>) ...
+           ]
+         }
+       }
+     }'
+   ```
+5. Write `jira:` (parent key) to PLAN.md frontmatter
+6. Write `jira_subtask: PROJ-YYY` into each task section in PLAN.md
+7. Update STATE.md with parent + subtask ticket keys
 
-**If `jira:` already has a value:** proceed with existing key.
+**If `jira:` already has a value:** proceed with existing key. Verify subtask tickets exist for each task — create any missing ones.
 </step>
 
 <!-- ════════════════════════════════════════════════ -->
@@ -190,16 +225,27 @@ After all three TDD phases pass for a task:
 <!-- ════════════════════════════════════════════════ -->
 
 <step name="jira_update">
-Post comment to Jira ticket via REST API:
+**Two Jira updates per task:**
 
-```bash
-source .jade/.env
-AUTH="Authorization: Basic $(echo -n "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" | base64)"
-curl -s -X POST \
-  -H "$AUTH" -H "Content-Type: application/json" \
-  "$JIRA_BASE_URL/rest/api/3/issue/$JIRA_KEY/comment" \
-  -d '{"body":{"version":3,"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"✅ Task [N] complete: [task name]\nRED ✓ | GREEN ✓ | REFACTOR ✓\nTests added: X | All passing: Y\nFiles: [list]\nCommit: [sha]"}]}]}}'
-```
+1. **Transition the subtask ticket** to Done (if subtask key exists in PLAN.md `jira_subtask:` field):
+   ```bash
+   source .jade/.env
+   AUTH="Authorization: Basic $(echo -n "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" | base64)"
+   # Get transitions for subtask
+   TRANSITIONS=$(curl -s -H "$AUTH" "$JIRA_BASE_URL/rest/api/3/issue/$SUBTASK_KEY/transitions")
+   TRANSITION_ID=$(echo "$TRANSITIONS" | jq -r '.transitions[] | select(.name | test("done";"i")) | .id')
+   curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" \
+     "$JIRA_BASE_URL/rest/api/3/issue/$SUBTASK_KEY/transitions" \
+     -d '{"transition":{"id":"'"$TRANSITION_ID"'"}}'
+   ```
+
+2. **Post completion comment to the parent Story ticket** with TDD results:
+   ```bash
+   curl -s -X POST \
+     -H "$AUTH" -H "Content-Type: application/json" \
+     "$JIRA_BASE_URL/rest/api/3/issue/$JIRA_KEY/comment" \
+     -d '{"body":{"version":3,"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"✅ Task [N] complete: [task name] ([discipline])\nSubtask: [SUBTASK_KEY]\nRED ✓ | GREEN ✓ | REFACTOR ✓\nTests added: X | All passing: Y\nFiles: [list]\nCommit: [sha]"}]}]}}'
+   ```
 </step>
 
 <!-- ════════════════════════════════════════════════ -->

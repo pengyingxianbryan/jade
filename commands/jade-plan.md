@@ -102,29 +102,94 @@ If user requests changes: revise affected plans and re-present.
 **Only if Plan All mode. Runs automatically after APPROVE.**
 
 1. Source credentials: `source .jade/.env`
-2. Create Jira tickets for **ALL phases** via REST API, one per phase:
+2. **Create parent Story ticket per phase** with rich content via REST API:
    ```bash
    source .jade/.env
    AUTH="Authorization: Basic $(echo -n "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" | base64)"
-   # Repeat for each phase — use that phase's objective and ACs
+   # Repeat for each phase — build rich ADF description from PLAN.md
    curl -s -X POST \
      -H "$AUTH" -H "Content-Type: application/json" \
      "$JIRA_BASE_URL/rest/api/3/issue" \
-     -d '{"fields":{"project":{"key":"'"$JIRA_PROJECT_KEY"'"},"summary":"[from phase N objective]","issuetype":{"name":"Story"},"description":{"version":3,"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"[from phase N ACs]"}]}]}}}'
+     -d '{
+       "fields": {
+         "project": {"key": "'"$JIRA_PROJECT_KEY"'"},
+         "summary": "[Phase N] [from phase objective — first sentence]",
+         "issuetype": {"name": "Story"},
+         "labels": ["jade-managed"],
+         "description": {
+           "version": 3,
+           "type": "doc",
+           "content": [
+             {"type": "heading", "attrs": {"level": 2}, "content": [{"type": "text", "text": "Objective"}]},
+             {"type": "paragraph", "content": [{"type": "text", "text": "[full objective from PLAN.md <objective> section]"}]},
+             {"type": "heading", "attrs": {"level": 2}, "content": [{"type": "text", "text": "Acceptance Criteria"}]},
+             {"type": "paragraph", "content": [{"type": "text", "text": "[AC-1 name]"}]},
+             {"type": "codeBlock", "attrs": {"language": "gherkin"}, "content": [{"type": "text", "text": "Given [precondition]\nWhen [action]\nThen [outcome]"}]},
+             {"type": "paragraph", "content": [{"type": "text", "text": "[AC-2 name]"}]},
+             {"type": "codeBlock", "attrs": {"language": "gherkin"}, "content": [{"type": "text", "text": "Given [precondition]\nWhen [action]\nThen [outcome]"}]},
+             {"type": "paragraph", "content": [{"type": "text", "text": "[AC-3 name]"}]},
+             {"type": "codeBlock", "attrs": {"language": "gherkin"}, "content": [{"type": "text", "text": "Given [precondition]\nWhen [action]\nThen [outcome]"}]},
+             {"type": "heading", "attrs": {"level": 2}, "content": [{"type": "text", "text": "Scope & Boundaries"}]},
+             {"type": "paragraph", "content": [{"type": "text", "text": "[from PLAN.md <boundaries> section — scope limits and protected files]"}]},
+             {"type": "heading", "attrs": {"level": 2}, "content": [{"type": "text", "text": "Tasks"}]},
+             {"type": "paragraph", "content": [{"type": "text", "text": "[N] subtask(s) — see child tickets for details"}]}
+           ]
+         }
+       }
+     }'
    ```
-3. For each phase, parse response for ticket key (e.g., `PROJ-123`, `PROJ-124`, ...)
-4. Write `jira: PROJ-XXX` to each phase's PLAN.md frontmatter
-5. Update STATE.md: record all ticket keys, `plans_approved: [ISO timestamp]`
+3. For each phase, parse response for parent ticket key (e.g., `PROJ-123`)
 
-**All tickets are created upfront so the Jira board shows the full backlog. External systems can pick up tickets as phases are completed and merged.**
+4. **Create subtask tickets for each task** in the phase, one per task:
+   ```bash
+   # For each task in PLAN.md <tasks> section:
+   curl -s -X POST \
+     -H "$AUTH" -H "Content-Type: application/json" \
+     "$JIRA_BASE_URL/rest/api/3/issue" \
+     -d '{
+       "fields": {
+         "project": {"key": "'"$JIRA_PROJECT_KEY"'"},
+         "parent": {"key": "PROJ-123"},
+         "summary": "Task [N]: [task name]",
+         "issuetype": {"name": "Subtask"},
+         "labels": ["jade-managed", "[discipline]"],
+         "description": {
+           "version": 3,
+           "type": "doc",
+           "content": [
+             {"type": "heading", "attrs": {"level": 3}, "content": [{"type": "text", "text": "Discipline"}]},
+             {"type": "paragraph", "content": [{"type": "text", "text": "[frontend | backend | fullstack] — from <discipline> field"}]},
+             {"type": "heading", "attrs": {"level": 3}, "content": [{"type": "text", "text": "Implementation"}]},
+             {"type": "paragraph", "content": [{"type": "text", "text": "[from <action> field — full implementation instructions]"}]},
+             {"type": "heading", "attrs": {"level": 3}, "content": [{"type": "text", "text": "Files"}]},
+             {"type": "paragraph", "content": [{"type": "text", "text": "[from <files> field]"}]},
+             {"type": "heading", "attrs": {"level": 3}, "content": [{"type": "text", "text": "Acceptance Criteria"}]},
+             {"type": "paragraph", "content": [{"type": "text", "text": "[from <done> field — links back to parent Story ACs]"}]},
+             {"type": "heading", "attrs": {"level": 3}, "content": [{"type": "text", "text": "Verification"}]},
+             {"type": "paragraph", "content": [{"type": "text", "text": "[from <verify> field]"}]}
+           ]
+         }
+       }
+     }'
+   ```
+   **Discipline label mapping:** Use the `<discipline>` value from each task (`frontend`, `backend`, or `fullstack`) as a Jira label. This enables filtering by developer type on the board.
 
-6. Print confirmation:
+5. Write `jira: PROJ-XXX` (parent Story key) to each phase's PLAN.md frontmatter
+6. Write subtask keys into each task's section in PLAN.md (add `jira_subtask: PROJ-YYY` comment after `<name>`)
+7. Update STATE.md: record all parent + subtask ticket keys, `plans_approved: [ISO timestamp]`
+
+**All tickets (parent Stories + subtasks) are created upfront so the Jira board shows the full backlog with proper hierarchy. Frontend and backend work is clearly labeled for team assignment.**
+
+8. Print confirmation:
    ```
    ✅ All plans approved.
    ✅ Jira tickets created for all phases:
-     Phase 1: PROJ-123
-     Phase 2: PROJ-124
-     Phase 3: PROJ-125
+     Phase 1: PROJ-123 (Story)
+       ├─ PROJ-124: Task 1 [backend]
+       └─ PROJ-125: Task 2 [frontend]
+     Phase 2: PROJ-126 (Story)
+       ├─ PROJ-127: Task 1 [fullstack]
+       └─ PROJ-128: Task 2 [frontend]
      [... all phases ...]
 
    Run /jade:apply to begin Phase 1.
@@ -148,16 +213,21 @@ If user requests changes: revise affected plans and re-present.
 5. Present revised plan for APPROVE
 6. After APPROVE:
    a. Update the PLAN.md file in place
-   b. Sync changes to Jira — read `jira:` from PLAN.md frontmatter and update the ticket:
+   b. Sync changes to Jira — update the parent Story with rich content:
       ```bash
       source .jade/.env
       AUTH="Authorization: Basic $(echo -n "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" | base64)"
+      # Update parent Story with full ADF description (same structure as plan_all_after_approve)
       curl -s -X PUT \
         -H "$AUTH" -H "Content-Type: application/json" \
         "$JIRA_BASE_URL/rest/api/3/issue/$JIRA_KEY" \
-        -d '{"fields":{"summary":"[updated objective]","description":{"version":3,"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"[updated ACs]"}]}]}}}'
+        -d '{"fields":{"summary":"[updated objective]","description":{... rich ADF with Objective, ACs (Given/When/Then), Scope, Tasks sections ...}}}'
       ```
-   c. Post a comment noting the revision:
+   c. Sync subtasks — for each task in the revised plan:
+      - If subtask already exists (has `jira_subtask:` in PLAN.md): update it via PUT with revised action/files/done/discipline
+      - If task is new (no subtask key): create new subtask under parent Story (same structure as plan_all_after_approve step 4)
+      - If task was removed: transition orphaned subtask to Done/Cancelled with comment
+   d. Post a comment noting the revision:
       ```bash
       curl -s -X POST \
         -H "$AUTH" -H "Content-Type: application/json" \
@@ -254,16 +324,32 @@ Present the plan:
    - Dependencies on existing phases
    - Scope placeholder
 4. Create phase directory: `.jade/phases/{NN}-{name}/`
-5. Create Jira ticket for the new phase:
+5. Create parent Story ticket for the new phase (placeholder — subtasks added when plan is created via `--revise`):
    ```bash
    source .jade/.env
    AUTH="Authorization: Basic $(echo -n "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" | base64)"
    curl -s -X POST \
      -H "$AUTH" -H "Content-Type: application/json" \
      "$JIRA_BASE_URL/rest/api/3/issue" \
-     -d '{"fields":{"project":{"key":"'"$JIRA_PROJECT_KEY"'"},"summary":"[from phase goal]","issuetype":{"name":"Story"},"description":{"version":3,"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Phase added to roadmap. Detailed plan pending /jade:plan --revise N."}]}]}}}'
+     -d '{
+       "fields": {
+         "project": {"key": "'"$JIRA_PROJECT_KEY"'"},
+         "summary": "[Phase N] [from phase goal]",
+         "issuetype": {"name": "Story"},
+         "labels": ["jade-managed"],
+         "description": {
+           "version": 3,
+           "type": "doc",
+           "content": [
+             {"type": "heading", "attrs": {"level": 2}, "content": [{"type": "text", "text": "Objective"}]},
+             {"type": "paragraph", "content": [{"type": "text", "text": "[from phase goal]"}]},
+             {"type": "paragraph", "content": [{"type": "text", "text": "⏳ Phase added to roadmap. Detailed plan and subtasks pending /jade:plan --revise N."}]}
+           ]
+         }
+       }
+     }'
    ```
-6. Parse response for ticket key and note it for PLAN.md frontmatter (written when plan is created via `--revise`)
+6. Parse response for ticket key and note it for PLAN.md frontmatter (subtask tickets will be created when `--revise` generates the full plan)
 7. Update STATE.md with new ticket key
 8. Print: "Phase {N} added: {name}. Jira ticket: PROJ-XXX. Run /jade:plan --revise {N} to create a detailed plan."
 </step>
@@ -314,7 +400,7 @@ Every PLAN.md must include:
 - **Frontmatter:** phase, plan, type, jira (empty until ticket created), wave, depends_on, files_modified, autonomous
 - **`<objective>`** — user story format: "As a [persona], I can [action] so that [outcome]"
 - **`<acceptance_criteria>`** — minimum 3 ACs in Given/When/Then format
-- **`<tasks>`** — 2-3 tasks max, each with `<name>`, `<files>`, `<action>`, `<verify>`, `<done>`
+- **`<tasks>`** — 2-3 tasks max, each with `<name>`, `<discipline>` (frontend|backend|fullstack|devops), `<files>`, `<action>`, `<verify>`, `<done>`
 - **`<boundaries>`** — DO NOT CHANGE list + scope limits
 - **`<verification>`** — completion checklist
 
