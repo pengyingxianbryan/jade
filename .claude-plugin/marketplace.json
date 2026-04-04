@@ -8,7 +8,7 @@
     {
       "name": "claude-pm",
       "description": "PAUL extended with Jira REST API, gh CLI, human approval gate, full-plan-upfront workflow, and RED/GREEN/REFACTOR TDD enforcement per task.",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "source": "./",
       "author": {
         "name": "Bryan Phang"
