@@ -102,26 +102,30 @@ If user requests changes: revise affected plans and re-present.
 **Only if Plan All mode. Runs automatically after APPROVE.**
 
 1. Source credentials: `source .jade/.env`
-2. Create Jira ticket for **phase 1 only** via REST API:
+2. Create Jira tickets for **ALL phases** via REST API, one per phase:
    ```bash
    source .jade/.env
    AUTH="Authorization: Basic $(echo -n "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" | base64)"
+   # Repeat for each phase — use that phase's objective and ACs
    curl -s -X POST \
      -H "$AUTH" -H "Content-Type: application/json" \
      "$JIRA_BASE_URL/rest/api/3/issue" \
-     -d '{"fields":{"project":{"key":"'"$JIRA_PROJECT_KEY"'"},"summary":"[from phase 1 objective]","issuetype":{"name":"Story"},"description":{"version":3,"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"[from phase 1 ACs]"}]}]}}}'
+     -d '{"fields":{"project":{"key":"'"$JIRA_PROJECT_KEY"'"},"summary":"[from phase N objective]","issuetype":{"name":"Story"},"description":{"version":3,"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"[from phase N ACs]"}]}]}}}'
    ```
-3. Parse response for ticket key (e.g., `PROJ-123`)
-4. Write `jira: PROJ-123` to phase 1 PLAN.md frontmatter
-5. Update STATE.md: `ticket: PROJ-123`, `status: To Do`, `plans_approved: [ISO timestamp]`
+3. For each phase, parse response for ticket key (e.g., `PROJ-123`, `PROJ-124`, ...)
+4. Write `jira: PROJ-XXX` to each phase's PLAN.md frontmatter
+5. Update STATE.md: record all ticket keys, `plans_approved: [ISO timestamp]`
 
-**Subsequent phase tickets are created when each phase starts `/jade:apply`.**
+**All tickets are created upfront so the Jira board shows the full backlog. External systems can pick up tickets as phases are completed and merged.**
 
 6. Print confirmation:
    ```
    ✅ All plans approved.
-   ✅ Jira ticket created for Phase 1: PROJ-123
-   ✅ Branch will be: jade/PROJ-123
+   ✅ Jira tickets created for all phases:
+     Phase 1: PROJ-123
+     Phase 2: PROJ-124
+     Phase 3: PROJ-125
+     [... all phases ...]
 
    Run /jade:apply to begin Phase 1.
    ```
@@ -142,7 +146,24 @@ If user requests changes: revise affected plans and re-present.
    - Update file references if earlier phases changed structure
    - Modify scope if needed
 5. Present revised plan for APPROVE
-6. After APPROVE: update the PLAN.md file in place
+6. After APPROVE:
+   a. Update the PLAN.md file in place
+   b. Sync changes to Jira — read `jira:` from PLAN.md frontmatter and update the ticket:
+      ```bash
+      source .jade/.env
+      AUTH="Authorization: Basic $(echo -n "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" | base64)"
+      curl -s -X PUT \
+        -H "$AUTH" -H "Content-Type: application/json" \
+        "$JIRA_BASE_URL/rest/api/3/issue/$JIRA_KEY" \
+        -d '{"fields":{"summary":"[updated objective]","description":{"version":3,"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"[updated ACs]"}]}]}}}'
+      ```
+   c. Post a comment noting the revision:
+      ```bash
+      curl -s -X POST \
+        -H "$AUTH" -H "Content-Type: application/json" \
+        "$JIRA_BASE_URL/rest/api/3/issue/$JIRA_KEY/comment" \
+        -d '{"body":{"version":3,"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"📝 Plan revised — scope updated based on learnings from earlier phases."}]}]}}'
+      ```
 
 **Say exactly:**
 > "Here is the revised plan for Phase N, incorporating learnings from completed phases. Reply **APPROVE** to accept, or tell me what to change."
@@ -233,8 +254,18 @@ Present the plan:
    - Dependencies on existing phases
    - Scope placeholder
 4. Create phase directory: `.jade/phases/{NN}-{name}/`
-5. Update STATE.md
-6. Print: "Phase {N} added: {name}. Run /jade:plan --revise {N} to create a detailed plan."
+5. Create Jira ticket for the new phase:
+   ```bash
+   source .jade/.env
+   AUTH="Authorization: Basic $(echo -n "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" | base64)"
+   curl -s -X POST \
+     -H "$AUTH" -H "Content-Type: application/json" \
+     "$JIRA_BASE_URL/rest/api/3/issue" \
+     -d '{"fields":{"project":{"key":"'"$JIRA_PROJECT_KEY"'"},"summary":"[from phase goal]","issuetype":{"name":"Story"},"description":{"version":3,"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Phase added to roadmap. Detailed plan pending /jade:plan --revise N."}]}]}}}'
+   ```
+6. Parse response for ticket key and note it for PLAN.md frontmatter (written when plan is created via `--revise`)
+7. Update STATE.md with new ticket key
+8. Print: "Phase {N} added: {name}. Jira ticket: PROJ-XXX. Run /jade:plan --revise {N} to create a detailed plan."
 </step>
 
 <!-- ════════════════════════════════════════════════ -->
@@ -247,10 +278,29 @@ Present the plan:
 1. Validate phase exists in ROADMAP.md
 2. Validate phase has NOT started (cannot remove completed or in-progress phases)
 3. If started: STOP — "Cannot remove phase {N}: already {status}."
-4. Remove from ROADMAP.md
-5. Clean up phase directory if empty
-6. Renumber subsequent phases in ROADMAP.md
-7. Update STATE.md
+4. Read `jira:` from the phase's PLAN.md frontmatter (if it exists)
+5. If Jira ticket exists, transition it to Done/Cancelled with a comment:
+   ```bash
+   source .jade/.env
+   AUTH="Authorization: Basic $(echo -n "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" | base64)"
+   # Post cancellation comment
+   curl -s -X POST \
+     -H "$AUTH" -H "Content-Type: application/json" \
+     "$JIRA_BASE_URL/rest/api/3/issue/$JIRA_KEY/comment" \
+     -d '{"body":{"version":3,"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"🚫 Phase removed from roadmap. Ticket cancelled."}]}]}}'
+   # Transition to Done/Cancelled (get available transitions first)
+   TRANSITIONS=$(curl -s -H "$AUTH" "$JIRA_BASE_URL/rest/api/3/issue/$JIRA_KEY/transitions")
+   TRANSITION_ID=$(echo "$TRANSITIONS" | jq -r '.transitions[] | select(.name | test("done|cancel|closed";"i")) | .id' | head -1)
+   if [ -n "$TRANSITION_ID" ]; then
+     curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" \
+       "$JIRA_BASE_URL/rest/api/3/issue/$JIRA_KEY/transitions" \
+       -d '{"transition":{"id":"'"$TRANSITION_ID"'"}}'
+   fi
+   ```
+6. Remove from ROADMAP.md
+7. Clean up phase directory if empty
+8. Renumber subsequent phases in ROADMAP.md
+9. Update STATE.md
 8. Print: "Phase {N} removed. Subsequent phases renumbered."
 </step>
 
@@ -287,7 +337,7 @@ Update STATE.md:
 - [ ] Each plan has objective, ACs (Given/When/Then), tasks, boundaries
 - [ ] Plans written to correct phase directories
 - [ ] Plan(s) presented to user and APPROVE received
-- [ ] Jira ticket created for phase 1 (Plan All) or linked (Jira-first)
+- [ ] Jira tickets created for ALL phases (Plan All) or linked (Jira-first)
 - [ ] STATE.md updated
 - [ ] User informed of next action: /jade:apply
 </success_criteria>

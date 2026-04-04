@@ -51,7 +51,9 @@ Fix the issue and run /jade:apply again.
 <step name="ensure_jira_ticket">
 Read `jira:` field from PLAN.md frontmatter.
 
-**If `jira:` is empty (phase ticket not yet created):**
+**Expected:** `jira:` should already have a ticket key — all tickets are created upfront during `/jade:plan` after APPROVE.
+
+**If `jira:` is empty (fallback — e.g., plan was revised or added after initial approval):**
 1. Source credentials: `source .jade/.env`
 2. Create Jira ticket via REST API:
    ```bash

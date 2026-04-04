@@ -105,8 +105,8 @@ EOF
 2. `/jade:plan` — Generate ALL phase plans
    Draft PLAN.md for every phase in the roadmap
    Present complete set → wait for APPROVE
-   After APPROVE: create Jira ticket for phase 1
-   Subsequent phase tickets created at each APPLY start
+   After APPROVE: create Jira tickets for ALL phases upfront
+   Full backlog visible in Jira immediately — system picks up tickets as phases complete
 
    OR `/jade:plan PROJ-123` — Jira-first mode for team workflows
    Fetch existing ticket → pre-populate PLAN.md → APPROVE → link ticket
@@ -117,7 +117,7 @@ EOF
 3. For each phase:
    a. `/jade:apply`
       Verify GitHub remote is reachable (HARD GATE)
-      Create Jira ticket for this phase if not yet created
+      Jira ticket already exists from plan phase (fallback: create if missing)
       Create feature branch: jade/[jira_key]
       For each task: RED -> GREEN -> REFACTOR
       Commit and push after every task
