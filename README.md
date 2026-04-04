@@ -1,14 +1,28 @@
 # PM
 
-**J**ust **A**pproval → **D**riven Test → **E**valuation
+Story -> Tasks -> Approval -> TDD -> Github
 
 A Claude Code plugin that extends PAUL's Plan-Apply-Unify loop with local Story/Task tracking, GitHub per-task PRs, and strict TDD enforcement.
 
 ---
 
-## How PM Extends PAUL
+## Installation
 
-PM keeps everything PAUL does and adds four things:
+### From GitHub
+
+```bash
+# Register the marketplace
+/plugin marketplace add pengyingxianbryan/claude-pm
+
+# Install the plugin
+/plugin install claude-pm
+```
+
+### Manual
+
+Clone the repo and point Claude Code at the `pm/` directory.
+
+---
 
 ### 1. Local Story/Task Tracking
 
@@ -18,7 +32,7 @@ PM creates a Jira-style hierarchy of markdown files under each phase — no exte
 .pm/phases/01-foundation/
 ├── STORY.md              # Phase story — status, ACs, scope
 ├── tasks/
-���   ├── TASK-01.md        # Task — status, ACs, completion record
+      ├── TASK-01.md        # Task — status, ACs, completion record
 │   └── TASK-02.md
 ├── 01-01-PLAN.md         # Executable plan
 └── 01-01-SUMMARY.md      # After completion
@@ -70,24 +84,6 @@ INIT ──▶ PLAN ALL ──▶ APPROVE ──▶ [per-phase loop]
 | All tasks done | STORY.md → In Progress | — |
 | `/pm:unify` | STORY.md → In Review | — |
 | `/pm:verify` PASS | STORY.md → Done | — |
-
----
-
-## Installation
-
-### From GitHub
-
-```bash
-# Register the marketplace
-/plugin marketplace add pengyingxianbryan/claude-pm
-
-# Install the plugin
-/plugin install claude-pm
-```
-
-### Manual
-
-Clone the repo and point Claude Code at the `pm/` directory.
 
 ---
 
