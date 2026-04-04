@@ -66,7 +66,19 @@ Current directory state (check for existing .jade/)
       curl -s -H "$AUTH" "$JIRA_BASE_URL/rest/api/3/myself"
       ```
       If fails: warn but allow retry or continue
-   h. Touch `.jade/.configured`
+   h. Auto-create Jira components for discipline routing (idempotent — skips if already exist):
+      ```bash
+      source .jade/.env
+      AUTH="Authorization: Basic $(echo -n "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" | base64)"
+      for COMP in frontend backend fullstack devops; do
+        curl -s -X POST \
+          -H "$AUTH" -H "Content-Type: application/json" \
+          "$JIRA_BASE_URL/rest/api/3/component" \
+          -d '{"project":"'"$JIRA_PROJECT_KEY"'","name":"'"$COMP"'","description":"'"$COMP tasks — auto-created by JADE"'"}'
+      done
+      ```
+      If a component already exists (409 Conflict), skip silently — this is expected.
+   i. Touch `.jade/.configured`
 </step>
 
 <!-- ════════════════════════════════════════════════ -->
@@ -187,6 +199,7 @@ Phases: [N] created
   └── 03-[name]/
 
 Jira: [JIRA_PROJECT_KEY] @ [JIRA_BASE_URL]
+Components: frontend, backend, fullstack, devops ✅
 GitHub: [GITHUB_REPO] (gh authenticated ✅)
 Remote: [verified/unverified]
 
@@ -205,6 +218,7 @@ Remote: [verified/unverified]
 - [ ] Jira credentials collected and verified
 - [ ] .jade/.env created with credentials (including GITHUB_REPO)
 - [ ] .jade/.env added to .gitignore
+- [ ] Jira components created (frontend, backend, fullstack, devops)
 - [ ] .jade/.configured sentinel created
 - [ ] Project conversation completed — PROJECT.md populated
 - [ ] Roadmap proposed, refined, and approved

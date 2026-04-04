@@ -67,6 +67,7 @@ Read `jira:` field from PLAN.md frontmatter.
          "project": {"key": "'"$JIRA_PROJECT_KEY"'"},
          "summary": "[Phase N] [from objective — first sentence]",
          "issuetype": {"name": "Story"},
+         "priority": {"name": "[derived from wave — Wave 1=Highest, 2=High, 3=Medium, 4+=Low]"},
          "labels": ["jade-managed"],
          "description": {
            "version": 3, "type": "doc",
@@ -89,7 +90,9 @@ Read `jira:` field from PLAN.md frontmatter.
          "parent": {"key": "[parent Story key]"},
          "summary": "Task [N]: [task name]",
          "issuetype": {"name": "Subtask"},
+         "priority": {"name": "[inherit from parent Story priority]"},
          "labels": ["jade-managed", "[discipline from <discipline> field]"],
+         "components": [{"name": "[discipline from <discipline> field]"}],
          "description": {
            "version": 3, "type": "doc",
            "content": [
@@ -157,7 +160,7 @@ Read `jira:` field from PLAN.md frontmatter to get the ticket key.
 <!-- ════════════════════════════════════════════════ -->
 
 <step name="tdd_loop">
-**For each `<task>` in the plan, execute in strict order:**
+**For each `<task>` in the plan, execute in strict order (skip tasks where `<status>done</status>`):**
 
 ```
 ─── Task [N]: [task name] ──────────────────────────────
@@ -252,6 +255,27 @@ After all three TDD phases pass for a task:
 <!-- STATE UPDATE — PER TASK                          -->
 <!-- ════════════════════════════════════════════════ -->
 
+<step name="update_plan_task_status">
+**Update PLAN.md to mark the task as complete in the local phase folder:**
+
+For the completed task element in PLAN.md, add/update a `<status>` field:
+```xml
+<task type="auto">
+  <name>Task N: [task name]</name>
+  <status>done</status>
+  <completed_at>[ISO timestamp]</completed_at>
+  <commit>[short SHA]</commit>
+  <tests_added>X</tests_added>
+  <tests_passing>Y</tests_passing>
+  ...
+</task>
+```
+
+This ensures the PLAN.md in the phase folder is a local source of truth for task completion — critical for resume scenarios after session crashes.
+
+**On resume (`/jade:resume` or re-running `/jade:apply`):** Read `<status>` fields from PLAN.md tasks. Skip any task already marked `done`. Resume from the first task without `<status>done</status>`.
+</step>
+
 <step name="state_update">
 Append to STATE.md TDD Results section:
 ```
@@ -344,8 +368,11 @@ Update STATE.md loop position: APPLY ✓
 - [ ] No existing tests broken (GREEN gate)
 - [ ] Every task committed with structured message including jira key
 - [ ] Every task pushed to feature branch
-- [ ] Every task posted as Jira comment (via curl)
+- [ ] Every task's subtask transitioned to Done in Jira
+- [ ] Every task posted as comment to parent Story in Jira (via curl)
+- [ ] Every task marked `<status>done</status>` in PLAN.md with completion metadata
 - [ ] STATE.md TDD Results updated per task
+- [ ] Already-completed tasks (status=done) skipped on resume
 - [ ] Boundary files untouched
 - [ ] Phase transition offered if more phases exist
 - [ ] User informed of next action: /jade:unify

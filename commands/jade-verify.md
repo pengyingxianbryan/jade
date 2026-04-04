@@ -84,14 +84,63 @@ Wait for user response.
 **If FAIL:**
 1. Ask: "Describe the issues found."
 2. Capture issues to `.jade/phases/XX-name/{plan}-UAT.md`
-3. Post comment to Jira via REST API: "❌ UAT failed. Issues captured for fix."
-4. Print:
+3. For each issue, create a **Bug** ticket in Jira (not Task) via REST API:
+   ```bash
+   source .jade/.env
+   AUTH="Authorization: Basic $(echo -n "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" | base64)"
+   curl -s -X POST \
+     -H "$AUTH" -H "Content-Type: application/json" \
+     "$JIRA_BASE_URL/rest/api/3/issue" \
+     -d '{
+       "fields": {
+         "project": {"key": "'"$JIRA_PROJECT_KEY"'"},
+         "summary": "[Bug] [AC or issue description]",
+         "issuetype": {"name": "Bug"},
+         "priority": {"name": "[Blocker=Highest, Major=High, Minor=Medium, Cosmetic=Low]"},
+         "labels": ["jade-managed", "uat-failure"],
+         "components": [{"name": "[discipline if determinable from the failing area]"}],
+         "description": {
+           "version": 3,
+           "type": "doc",
+           "content": [
+             {"type": "heading", "attrs": {"level": 3}, "content": [{"type": "text", "text": "Steps to Reproduce"}]},
+             {"type": "paragraph", "content": [{"type": "text", "text": "[from user FAIL description — what they did to trigger the issue]"}]},
+             {"type": "heading", "attrs": {"level": 3}, "content": [{"type": "text", "text": "Expected Result"}]},
+             {"type": "paragraph", "content": [{"type": "text", "text": "[from the relevant AC Given/When/Then — what should have happened]"}]},
+             {"type": "heading", "attrs": {"level": 3}, "content": [{"type": "text", "text": "Actual Result"}]},
+             {"type": "paragraph", "content": [{"type": "text", "text": "[from user description — what actually happened]"}]},
+             {"type": "heading", "attrs": {"level": 3}, "content": [{"type": "text", "text": "Affected AC"}]},
+             {"type": "paragraph", "content": [{"type": "text", "text": "[AC-N reference from PLAN.md that this bug violates]"}]},
+             {"type": "heading", "attrs": {"level": 3}, "content": [{"type": "text", "text": "Origin"}]},
+             {"type": "paragraph", "content": [{"type": "text", "text": "Story: [jira_key] | PR: [PR URL] | Phase: [N]"}]}
+           ]
+         }
+       }
+     }'
+   ```
+4. Link each Bug back to the parent Story:
+   ```bash
+   curl -s -X POST \
+     -H "$AUTH" -H "Content-Type: application/json" \
+     "$JIRA_BASE_URL/rest/api/3/issueLink" \
+     -d '{
+       "type": {"name": "Relates"},
+       "inwardIssue": {"key": "[BUG_KEY]"},
+       "outwardIssue": {"key": "[STORY_KEY]"}
+     }'
+   ```
+5. Post comment to Jira via REST API: "❌ UAT failed. [N] Bug ticket(s) created: [BUG-KEY1, BUG-KEY2, ...]"
+6. Print:
    ```
    ❌ UAT issues captured.
    Issues logged: .jade/phases/XX-name/{plan}-UAT.md
 
-   ▶ NEXT: /jade:plan-fix [plan-number]
-     Create a fix plan for the issues found.
+   Bug tickets created:
+     [BUG-KEY1]: [description] (Highest)
+     [BUG-KEY2]: [description] (High)
+
+   ▶ NEXT: /jade:plan --fix [plan-number]
+     Create a fix plan for the bugs found.
    ```
 </step>
 
@@ -102,6 +151,6 @@ Wait for user response.
 - [ ] PR URL shown
 - [ ] User verdict collected (PASS or FAIL)
 - [ ] On PASS: Jira ticket transitioned to Done (via curl)
-- [ ] On FAIL: Issues captured and logged
+- [ ] On FAIL: Issues captured, Bug tickets created in Jira with priority + steps to reproduce, linked to parent Story
 - [ ] Clear next action provided
 </success_criteria>

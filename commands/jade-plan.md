@@ -102,7 +102,15 @@ If user requests changes: revise affected plans and re-present.
 **Only if Plan All mode. Runs automatically after APPROVE.**
 
 1. Source credentials: `source .jade/.env`
-2. **Create parent Story ticket per phase** with rich content via REST API:
+
+2. **Create parent Story ticket per phase** with rich content, priority, and components via REST API:
+
+   **Priority derivation from `wave` field in PLAN.md frontmatter:**
+   - Wave 1 → `"Highest"`
+   - Wave 2 → `"High"`
+   - Wave 3 → `"Medium"`
+   - Wave 4+ → `"Low"`
+
    ```bash
    source .jade/.env
    AUTH="Authorization: Basic $(echo -n "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" | base64)"
@@ -115,6 +123,7 @@ If user requests changes: revise affected plans and re-present.
          "project": {"key": "'"$JIRA_PROJECT_KEY"'"},
          "summary": "[Phase N] [from phase objective — first sentence]",
          "issuetype": {"name": "Story"},
+         "priority": {"name": "[derived from wave — see mapping above]"},
          "labels": ["jade-managed"],
          "description": {
            "version": 3,
@@ -152,13 +161,15 @@ If user requests changes: revise affected plans and re-present.
          "parent": {"key": "PROJ-123"},
          "summary": "Task [N]: [task name]",
          "issuetype": {"name": "Subtask"},
+         "priority": {"name": "[inherit from parent Story priority]"},
          "labels": ["jade-managed", "[discipline]"],
+         "components": [{"name": "[discipline from <discipline> field]"}],
          "description": {
            "version": 3,
            "type": "doc",
            "content": [
              {"type": "heading", "attrs": {"level": 3}, "content": [{"type": "text", "text": "Discipline"}]},
-             {"type": "paragraph", "content": [{"type": "text", "text": "[frontend | backend | fullstack] — from <discipline> field"}]},
+             {"type": "paragraph", "content": [{"type": "text", "text": "[frontend | backend | fullstack | devops] — from <discipline> field"}]},
              {"type": "heading", "attrs": {"level": 3}, "content": [{"type": "text", "text": "Implementation"}]},
              {"type": "paragraph", "content": [{"type": "text", "text": "[from <action> field — full implementation instructions]"}]},
              {"type": "heading", "attrs": {"level": 3}, "content": [{"type": "text", "text": "Files"}]},
@@ -172,26 +183,43 @@ If user requests changes: revise affected plans and re-present.
        }
      }'
    ```
-   **Discipline label mapping:** Use the `<discipline>` value from each task (`frontend`, `backend`, or `fullstack`) as a Jira label. This enables filtering by developer type on the board.
+   **Discipline mapping:** The `<discipline>` value (`frontend`, `backend`, `fullstack`, `devops`) is used as both a Jira label AND a component. Components enable default assignee routing and board filtering. Labels provide additional flexibility.
 
-5. Write `jira: PROJ-XXX` (parent Story key) to each phase's PLAN.md frontmatter
-6. Write subtask keys into each task's section in PLAN.md (add `jira_subtask: PROJ-YYY` comment after `<name>`)
-7. Update STATE.md: record all parent + subtask ticket keys, `plans_approved: [ISO timestamp]`
+5. **Create issue links for cross-phase dependencies:**
 
-**All tickets (parent Stories + subtasks) are created upfront so the Jira board shows the full backlog with proper hierarchy. Frontend and backend work is clearly labeled for team assignment.**
+   After all Story tickets are created, build a plan-id → Jira key mapping. Then for each phase whose PLAN.md has a non-empty `depends_on: [...]` array, create a `Blocks` link:
+   ```bash
+   # For each dependency: the depended-on phase "blocks" the dependent phase
+   curl -s -X POST \
+     -H "$AUTH" -H "Content-Type: application/json" \
+     "$JIRA_BASE_URL/rest/api/3/issueLink" \
+     -d '{
+       "type": {"name": "Blocks"},
+       "inwardIssue": {"key": "[BLOCKER Story key — the depended-on phase]"},
+       "outwardIssue": {"key": "[DEPENDENT Story key — the phase with depends_on]"}
+     }'
+   ```
+   This creates visible dependency chains in Jira. The timeline/roadmap view will show these links, and teams can see "if phase 2 slips, phase 3 is blocked."
 
-8. Print confirmation:
+6. Write `jira: PROJ-XXX` (parent Story key) to each phase's PLAN.md frontmatter
+7. Write subtask keys into each task's section in PLAN.md (add `jira_subtask: PROJ-YYY` comment after `<name>`)
+8. Update STATE.md: record all parent + subtask ticket keys, `plans_approved: [ISO timestamp]`
+
+**All tickets (parent Stories + subtasks) are created upfront with priority, components, and dependency links. The Jira board shows full backlog with proper hierarchy, priority ordering, and cross-phase dependencies.**
+
+9. Print confirmation:
    ```
    ✅ All plans approved.
    ✅ Jira tickets created for all phases:
-     Phase 1: PROJ-123 (Story)
+     Phase 1: PROJ-123 (Story, Highest)
        ├─ PROJ-124: Task 1 [backend]
        └─ PROJ-125: Task 2 [frontend]
-     Phase 2: PROJ-126 (Story)
+     Phase 2: PROJ-126 (Story, High) — blocked by PROJ-123
        ├─ PROJ-127: Task 1 [fullstack]
        └─ PROJ-128: Task 2 [frontend]
      [... all phases ...]
 
+   Dependencies linked: [N] issue link(s) created.
    Run /jade:apply to begin Phase 1.
    ```
 </step>
@@ -336,6 +364,7 @@ Present the plan:
          "project": {"key": "'"$JIRA_PROJECT_KEY"'"},
          "summary": "[Phase N] [from phase goal]",
          "issuetype": {"name": "Story"},
+         "priority": {"name": "Medium"},
          "labels": ["jade-managed"],
          "description": {
            "version": 3,

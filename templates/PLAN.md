@@ -91,6 +91,9 @@ Then [outcome]
 <task type="auto">
   <name>Task 1: [Action-oriented name]</name>
   <discipline>frontend | backend | fullstack | devops</discipline>
+  <status>pending</status>
+  <!-- status: pending | done — updated by /jade:apply after TDD passes -->
+  <!-- completed_at, commit, tests_added, tests_passing — injected by /jade:apply on completion -->
   <files>path/to/file.ext, another/file.ext</files>
   <action>
     [Specific implementation instructions]

@@ -153,7 +153,9 @@ Update STATE.md: `pr: [PR URL]`
          "project": {"key": "'"$JIRA_PROJECT_KEY"'"},
          "summary": "[Deferred from [jira_key]] [issue description]",
          "issuetype": {"name": "Task"},
-         "labels": ["deferred", "jade-managed", "[frontend|backend|fullstack if determinable]"],
+         "priority": {"name": "[promote-urgent → High, standard promote → Medium]"},
+         "labels": ["deferred", "jade-managed", "[frontend|backend|fullstack|devops if determinable]"],
+         "components": [{"name": "[discipline if determinable from context]"}],
          "description": {
            "version": 3,
            "type": "doc",

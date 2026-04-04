@@ -36,14 +36,26 @@ All Jira operations use REST API v3 via `curl`. Always `source .jade/.env` first
 AUTH="Authorization: Basic $(echo -n "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" | base64)"
 ```
 
-### Create issue
+### Create issue (with priority + components)
 ```bash
 curl -s -X POST \
   -H "$AUTH" -H "Content-Type: application/json" \
   "$JIRA_BASE_URL/rest/api/3/issue" \
-  -d '{"fields":{"project":{"key":"'"$JIRA_PROJECT_KEY"'"},"summary":"...","issuetype":{"name":"Story"},"description":{"version":3,"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"..."}]}]}}}'
+  -d '{"fields":{"project":{"key":"'"$JIRA_PROJECT_KEY"'"},"summary":"...","issuetype":{"name":"Story"},"priority":{"name":"High"},"description":{"version":3,"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"..."}]}]}}}'
 ```
 Response: `{"key":"PROJ-123",...}`
+
+**Priority mapping (from PLAN.md `wave` field):**
+| Wave | Priority |
+|------|----------|
+| 1 | Highest |
+| 2 | High |
+| 3 | Medium |
+| 4+ | Low |
+
+**Issue types:** Story (phase), Subtask (task), Task (deferred), Bug (verify failure)
+
+**Components:** `frontend`, `backend`, `fullstack`, `devops` — auto-created at init, assigned to Subtasks via `"components":[{"name":"frontend"}]`
 
 ### Fetch issue
 ```bash
@@ -98,8 +110,23 @@ curl -s -X POST \
 ```
 Response: `{"key":"PROJ-124",...}`
 
-### Create linked issue (relates-to)
-Use `issuelinks` field for non-parent relationships.
+### Create issue link (dependencies + relations)
+```bash
+# Blocks link (for cross-phase dependencies from depends_on field)
+curl -s -X POST \
+  -H "$AUTH" -H "Content-Type: application/json" \
+  "$JIRA_BASE_URL/rest/api/3/issueLink" \
+  -d '{"type":{"name":"Blocks"},"inwardIssue":{"key":"PROJ-123"},"outwardIssue":{"key":"PROJ-126"}}'
+```
+inwardIssue = blocker (depended-on phase), outwardIssue = dependent phase.
+
+```bash
+# Relates link (for Bug → Story association after verify FAIL)
+curl -s -X POST \
+  -H "$AUTH" -H "Content-Type: application/json" \
+  "$JIRA_BASE_URL/rest/api/3/issueLink" \
+  -d '{"type":{"name":"Relates"},"inwardIssue":{"key":"BUG-KEY"},"outwardIssue":{"key":"STORY-KEY"}}'
+```
 
 ## GitHub patterns
 
