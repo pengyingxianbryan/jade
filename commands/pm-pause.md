@@ -1,23 +1,23 @@
 ---
-name: jade:pause
-description: Create comprehensive handoff, post paused status to Jira, prepare for session break
+name: pm:pause
+description: Create comprehensive handoff, prepare for session break
 argument-hint: "[reason]"
 allowed-tools: [Read, Write, Bash, AskUserQuestion]
 ---
 
 <objective>
-Create a comprehensive handoff document capturing all context, post a pause comment to Jira, and update STATE.md for session continuity.
+Create a comprehensive handoff document capturing all context and update STATE.md for session continuity.
 
 **When to use:** Before ending a session, switching context, or when context limit is approaching.
 
-This command combines the old `/jade:pause` and `/jade:handoff` into one — every pause produces a full handoff.
+This command combines the old `/pm:pause` and `/pm:handoff` into one — every pause produces a full handoff.
 </objective>
 
 <context>
 $ARGUMENTS
 
-@.jade/STATE.md
-@.jade/PROJECT.md
+@.pm/STATE.md
+@.pm/PROJECT.md
 </context>
 
 <process>
@@ -25,21 +25,23 @@ $ARGUMENTS
 <step name="detect_position">
 Read STATE.md for:
 - Current phase, plan, loop position
-- Jira ticket key and status
 - GitHub branch and last push
 - TDD progress
+
+Read STORY.md and TASK-NN.md files for current phase:
+- Task statuses
+- PR URLs
 </step>
 
 <step name="create_handoff">
-Create `.jade/HANDOFF-{date}.md` with comprehensive context:
+Create `.pm/HANDOFF-{date}.md` with comprehensive context:
 
 ```markdown
-# JADE Session Handoff
+# PM Session Handoff
 
 **Session:** {date}
 **Phase:** {current_phase}
-**Jira:** {ticket_key} — {status}
-**Branch:** jade/{ticket_key}
+**Branch:** {current git branch}
 **TDD:** {N}/{M} tasks complete
 
 ---
@@ -47,16 +49,22 @@ Create `.jade/HANDOFF-{date}.md` with comprehensive context:
 ## Session Accomplishments
 {what was done this session}
 
-## Jira Context
-- Ticket: {key} — {status}
-- Comments posted: {N}
-- Last sync: {timestamp}
+## Story Status
+- Phase: [name] — [status]
+- Tasks: [N]/[M] complete
+
+## Task Progress
+| # | Task | Status | PR |
+|---|------|--------|-----|
+| 1 | [name] | Done | [URL] |
+| 2 | [name] | In Progress | — |
+| 3 | [name] | To Do | — |
 
 ## GitHub Context
-- Branch: jade/{key}
+- Current branch: {branch name}
 - Commits this session: {N}
 - Last push: {timestamp}
-- PR: {URL or "not yet"}
+- Open PRs: {list}
 
 ## TDD Progress
 {per-task RED/GREEN/REFACTOR status}
@@ -75,20 +83,7 @@ Create `.jade/HANDOFF-{date}.md` with comprehensive context:
 
 ---
 *Handoff created: {timestamp}*
-*Resume: /jade:resume*
-```
-</step>
-
-<step name="jira_comment">
-If Jira ticket exists in STATE.md, post comment via REST API:
-
-```bash
-source .jade/.env
-AUTH="Authorization: Basic $(echo -n "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" | base64)"
-curl -s -X POST \
-  -H "$AUTH" -H "Content-Type: application/json" \
-  "$JIRA_BASE_URL/rest/api/3/issue/$JIRA_KEY/comment" \
-  -d '{"body":{"version":3,"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"⏸️ Session paused: [reason or session break]\nProgress: [N]/[M] tasks complete\nBranch: jade/[jira_key]\nLast push: [timestamp]\nResume with: /jade:resume"}]}]}}'
+*Resume: /pm:resume*
 ```
 </step>
 
@@ -106,11 +101,10 @@ Update STATE.md session continuity section:
 SESSION PAUSED
 ════════════════════════════════════════
 
-Handoff: .jade/HANDOFF-{date}.md
-Jira: [key] — pause comment posted
-Branch: jade/[key] — all work pushed
+Handoff: .pm/HANDOFF-{date}.md
+Branch: {branch} — all work pushed
 
-Resume: /jade:resume
+Resume: /pm:resume
 ════════════════════════════════════════
 ```
 </step>
@@ -118,10 +112,9 @@ Resume: /jade:resume
 </process>
 
 <success_criteria>
-- [ ] Comprehensive HANDOFF.md created with Jira/GitHub/TDD context
+- [ ] Comprehensive HANDOFF.md created with GitHub/TDD/task context
 - [ ] Decisions and open questions captured
 - [ ] Prioritized next actions listed
-- [ ] Jira comment posted (if ticket exists)
 - [ ] STATE.md updated with session continuity
 - [ ] Resume instructions provided
 </success_criteria>

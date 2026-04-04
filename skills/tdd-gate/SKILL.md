@@ -1,6 +1,6 @@
 ---
 name: tdd-gate
-description: Use when executing /jade:apply — enforces RED/GREEN/REFACTOR per task before any implementation code
+description: Use when executing /pm:apply — enforces RED/GREEN/REFACTOR per task before any implementation code
 ---
 
 # TDD Gate — RED/GREEN/REFACTOR Enforcement
@@ -15,7 +15,7 @@ Write the test first. Watch it fail. Write minimal code to pass.
 
 ## When This Skill Activates
 
-This skill is MANDATORY during every `/jade:apply` execution. For each `<task>` in PLAN.md, the full RED/GREEN/REFACTOR cycle must complete before moving to the next task.
+This skill is MANDATORY during every `/pm:apply` execution. For each `<task>` in PLAN.md, the full RED/GREEN/REFACTOR cycle must complete before moving to the next task.
 
 ## The Iron Law
 
@@ -112,18 +112,19 @@ Proceed with unrefactored code rather than breaking tests.
 
 1. **Commit** with structured message:
    ```
-   feat([jira_key]): task [N] — [task name]
+   feat: task [N] — [task name]
 
    - RED: [test file] — X tests added, confirmed failing
    - GREEN: [impl file] — all X tests passing
    - REFACTOR: cleanup applied
 
-   Refs: [jira_key]
+   Co-Authored-By: Claude <noreply@anthropic.com>
    ```
-2. **Push** to feature branch: `git push origin jade/[jira_key]`
-3. **Post Jira comment** with task results
-4. **Update STATE.md** TDD Results section
-5. Move to next task
+2. **Push** to task branch: `git push -u origin pm/{phase}-task-{N}`
+3. **Create PR** via `gh pr create` for review
+4. **Update TASK-NN.md** status to Done with completion record
+5. **Update STATE.md** TDD Results section
+6. Move to next task (after PR is merged)
 
 ## The Five Rules
 
@@ -189,8 +190,9 @@ Before marking a task complete:
 - [ ] Wrote MINIMAL code to pass (GREEN confirmed)
 - [ ] ALL tests pass (new and existing)
 - [ ] Refactored without breaking tests
-- [ ] Committed with structured message including jira key
-- [ ] Pushed to feature branch
-- [ ] Jira comment posted
+- [ ] Committed with structured message
+- [ ] Pushed to task branch
+- [ ] PR created for review
+- [ ] TASK-NN.md updated to Done
 
 Cannot check all boxes? You skipped TDD. Start over.

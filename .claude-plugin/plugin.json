@@ -1,7 +1,7 @@
 {
   "name": "claude-pm",
-  "version": "2.4.0",
-  "description": "JADE — Jira → Approval → Driven Test → Evaluation. PAUL extended with Jira REST API, GitHub gh CLI, human approval gate, full-plan-upfront workflow, and Superpowers-style TDD enforcement.",
+  "version": "3.0.0",
+  "description": "PM — Just Approval → Driven Test → Evaluation. PAUL extended with local Story/Task tracking, GitHub per-task PRs, human approval gate, full-plan-upfront workflow, and Superpowers-style TDD enforcement.",
   "author": {
     "name": "Bryan Phang"
   },

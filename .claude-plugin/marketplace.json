@@ -1,14 +1,14 @@
 {
   "name": "phangster",
-  "description": "JADE — Jira → Approval → Driven Test → Evaluation. PAUL extended with Jira REST API, GitHub gh CLI, and Superpowers-style TDD enforcement.",
+  "description": "PM — Just Approval → Driven Test → Evaluation. PAUL extended with local Story/Task tracking, GitHub per-task PRs, and Superpowers-style TDD enforcement.",
   "owner": {
     "name": "Bryan Phang"
   },
   "plugins": [
     {
       "name": "claude-pm",
-      "description": "PAUL extended with Jira REST API, gh CLI, human approval gate, full-plan-upfront workflow, and RED/GREEN/REFACTOR TDD enforcement per task.",
-      "version": "2.4.0",
+      "description": "PAUL extended with local Story/Task tracking, per-task GitHub PRs, human approval gate, full-plan-upfront workflow, and RED/GREEN/REFACTOR TDD enforcement per task.",
+      "version": "3.0.0",
       "source": "./",
       "author": {
         "name": "Bryan Phang"

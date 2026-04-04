@@ -1,84 +1,50 @@
 ---
-name: jade:init
-description: Initialize JADE in a project with conversational setup, Jira and GitHub configuration
+name: pm:init
+description: Initialize PM in a project with GitHub configuration and project setup
 argument-hint:
 allowed-tools: [Read, Write, Bash, Glob, AskUserQuestion]
 ---
 
 <objective>
-Initialize JADE for a project: collect credentials, understand the project, generate a roadmap, and create phase directories.
+Initialize PM for a project: verify GitHub access, understand the project, generate a roadmap, and create phase directories.
 
-**When to use:** Starting a new project with JADE, or adding JADE to an existing codebase.
+**When to use:** Starting a new project with PM, or adding PM to an existing codebase.
 </objective>
 
 <context>
-Current directory state (check for existing .jade/)
+Current directory state (check for existing .pm/)
 </context>
 
 <process>
 
 <!-- ════════════════════════════════════════════════ -->
-<!-- STEP 1 — CREDENTIALS                             -->
+<!-- STEP 1 — GITHUB SETUP                            -->
 <!-- ════════════════════════════════════════════════ -->
 
 <step name="check_credentials" priority="first">
-1. Check if `.jade/.configured` exists
-2. If configured: source `.jade/.env` and verify:
+1. Check if `.pm/.configured` exists
+2. If configured: verify:
    - Run `gh auth status` — confirm GitHub CLI is authenticated
    - Verify git remote: `git ls-remote origin HEAD` — confirm repo is reachable
-   - Run a Jira connectivity test:
-     ```bash
-     source .jade/.env
-     AUTH="Authorization: Basic $(echo -n "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" | base64)"
-     curl -s -o /dev/null -w "%{http_code}" -H "$AUTH" "$JIRA_BASE_URL/rest/api/3/myself"
-     ```
    - If both pass: skip to Step 2
    - If either fails: warn and offer to reconfigure
 
 3. If NOT configured:
-   a. Check `gh auth status` — if not authenticated, instruct: "Run `gh auth login` first, then re-run `/jade:init`." STOP.
-   b. Collect GitHub repo (ask before Jira credentials):
+   a. Check `gh auth status` — if not authenticated, instruct: "Run `gh auth login` first, then re-run `/pm:init`." STOP.
+   b. Collect GitHub repo:
       - Ask for GitHub repo URL (e.g., `https://github.com/org/repo` or `git@github.com:org/repo.git`)
       - Check current `git remote -v` — if `origin` already exists and matches, confirm and skip
       - If `origin` exists but differs: ask if they want to update it
       - If no `origin`: run `git remote add origin <repo_url>`
       - Verify connectivity: `git ls-remote origin HEAD`
         If fails: warn but allow retry or continue
-   c. Collect Jira credentials ONE question at a time:
-      - Jira base URL (e.g., `https://yourcompany.atlassian.net`)
-      - Jira project key (e.g., `ENG`)
-      - Atlassian email
-      - Atlassian API token (link: https://id.atlassian.com/manage-profile/security/api-tokens)
-   d. Create `.jade/` directory
-   e. Write `.jade/.env`:
+   c. Create `.pm/` directory
+   d. Write `.pm/.env`:
       ```
-      JIRA_BASE_URL="https://yourcompany.atlassian.net"
-      JIRA_PROJECT_KEY="ENG"
-      ATLASSIAN_EMAIL="you@yourcompany.com"
-      ATLASSIAN_API_TOKEN="your_token"
       GITHUB_REPO="https://github.com/org/repo"
       ```
-   f. Add `.jade/.env` to `.gitignore` (if not already present)
-   g. Verify Jira connectivity:
-      ```bash
-      source .jade/.env
-      AUTH="Authorization: Basic $(echo -n "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" | base64)"
-      curl -s -H "$AUTH" "$JIRA_BASE_URL/rest/api/3/myself"
-      ```
-      If fails: warn but allow retry or continue
-   h. Auto-create Jira components for discipline routing (idempotent — skips if already exist):
-      ```bash
-      source .jade/.env
-      AUTH="Authorization: Basic $(echo -n "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" | base64)"
-      for COMP in frontend backend fullstack devops; do
-        curl -s -X POST \
-          -H "$AUTH" -H "Content-Type: application/json" \
-          "$JIRA_BASE_URL/rest/api/3/component" \
-          -d '{"project":"'"$JIRA_PROJECT_KEY"'","name":"'"$COMP"'","description":"'"$COMP tasks — auto-created by JADE"'"}'
-      done
-      ```
-      If a component already exists (409 Conflict), skip silently — this is expected.
-   i. Touch `.jade/.configured`
+   e. Add `.pm/.env` to `.gitignore` (if not already present)
+   f. Touch `.pm/.configured`
 </step>
 
 <!-- ════════════════════════════════════════════════ -->
@@ -86,8 +52,8 @@ Current directory state (check for existing .jade/)
 <!-- ════════════════════════════════════════════════ -->
 
 <step name="check_existing">
-1. Check for existing `.jade/PROJECT.md`
-2. If exists: route to `/jade:resume` — do not re-initialize
+1. Check for existing `.pm/PROJECT.md`
+2. If exists: route to `/pm:resume` — do not re-initialize
 3. If not: proceed with project conversation
 </step>
 
@@ -161,12 +127,12 @@ If user requests changes: revise and re-present. Loop until approved.
 After roadmap is approved, create the full directory structure:
 
 ```
-.jade/
+.pm/
 ├── PROJECT.md          (populated from conversation)
 ├── ROADMAP.md          (populated from roadmap)
 ├── STATE.md            (initialized)
-├── .env                (credentials — already created)
-├── .configured         (sentinel — already created)
+├── .env                (GitHub repo URL)
+├── .configured         (sentinel)
 └── phases/
     ├── 01-[phase-name]/
     ├── 02-[phase-name]/
@@ -175,7 +141,7 @@ After roadmap is approved, create the full directory structure:
 ```
 
 Write ROADMAP.md with full phase details (goals, dependencies, scope).
-Write STATE.md with initialized loop position, empty Jira/GitHub/TDD sections.
+Write STATE.md with initialized loop position.
 </step>
 
 <!-- ════════════════════════════════════════════════ -->
@@ -187,24 +153,22 @@ Display:
 
 ```
 ════════════════════════════════════════
-JADE INITIALIZED
+PM INITIALIZED
 ════════════════════════════════════════
 
 Project: [name]
 Phases: [N] created
 
-  .jade/phases/
+  .pm/phases/
   ├── 01-[name]/
   ├── 02-[name]/
   └── 03-[name]/
 
-Jira: [JIRA_PROJECT_KEY] @ [JIRA_BASE_URL]
-Components: frontend, backend, fullstack, devops ✅
-GitHub: [GITHUB_REPO] (gh authenticated ✅)
+GitHub: [GITHUB_REPO] (gh authenticated)
 Remote: [verified/unverified]
 
 ────────────────────────────────────────
-▶ NEXT: /jade:plan
+▶ NEXT: /pm:plan
   Generate plans for all phases.
 ────────────────────────────────────────
 ```
@@ -215,15 +179,13 @@ Remote: [verified/unverified]
 <success_criteria>
 - [ ] gh CLI authenticated (or user directed to authenticate)
 - [ ] GitHub repo collected, origin remote configured, and connectivity verified
-- [ ] Jira credentials collected and verified
-- [ ] .jade/.env created with credentials (including GITHUB_REPO)
-- [ ] .jade/.env added to .gitignore
-- [ ] Jira components created (frontend, backend, fullstack, devops)
-- [ ] .jade/.configured sentinel created
+- [ ] .pm/.env created with GITHUB_REPO
+- [ ] .pm/.env added to .gitignore
+- [ ] .pm/.configured sentinel created
 - [ ] Project conversation completed — PROJECT.md populated
 - [ ] Roadmap proposed, refined, and approved
 - [ ] ROADMAP.md written with all phase details
-- [ ] Phase directories created under .jade/phases/
+- [ ] Phase directories created under .pm/phases/
 - [ ] STATE.md initialized
-- [ ] User presented with ONE clear next action: /jade:plan
+- [ ] User presented with ONE clear next action: /pm:plan
 </success_criteria>

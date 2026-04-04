@@ -1,6 +1,6 @@
 # STATE.md Template
 
-Template for `.jade/STATE.md` — the project's living memory.
+Template for `.pm/STATE.md` — the project's living memory.
 
 **Purpose:** Single source of truth for current position, accumulated context, and session continuity.
 
@@ -13,7 +13,7 @@ Template for `.jade/STATE.md` — the project's living memory.
 
 ## Project Reference
 
-See: .jade/PROJECT.md (updated [YYYY-MM-DD])
+See: .pm/PROJECT.md (updated [YYYY-MM-DD])
 
 **Core value:** [One-liner from PROJECT.md - the ONE thing that matters]
 **Current focus:** [Current milestone and phase name]
@@ -97,19 +97,13 @@ plans_approved:
 <!-- phase_01: planned -->
 <!-- phase_02: planned -->
 
-## Jira
-ticket:
-status:
-last_synced:
-
 ## GitHub
 branch:
 remote_verified:
 last_push:
-pr:
 
 ## TDD Results
-<!-- Written by /jade:apply — one line per task -->
+<!-- Written by /pm:apply — one line per task -->
 <!-- Format: task_N: RED ✓ | GREEN ✓ | REFACTOR ✓ | tests_added: X | passing: Y -->
 
 ---
@@ -121,20 +115,15 @@ pr:
 
 ## Section Specifications
 
-### Jira Section
-**Purpose:** Track Jira ticket linked to current plan.
-**Contains:** ticket key, status, last sync timestamp.
-**Update:** After /jade:plan (ticket created/linked), after each task in /jade:apply (comment posted), after /jade:unify (transition).
-
 ### GitHub Section
 **Purpose:** Track GitHub remote and branch state.
-**Contains:** repo URL, feature branch, remote verification status, last push timestamp, PR URL.
-**Update:** After /jade:apply starts (branch created), after each task (push), after /jade:unify (PR created).
+**Contains:** feature branch, remote verification status, last push timestamp.
+**Update:** After /pm:apply starts (branch created), after each task (push), after PR created.
 
 ### TDD Results Section
 **Purpose:** Track RED/GREEN/REFACTOR results per task.
 **Contains:** One line per task with phase results and test counts.
-**Update:** After each task completes all three TDD phases in /jade:apply.
+**Update:** After each task completes all three TDD phases in /pm:apply.
 
 ### All Other Sections
 Identical to PAUL STATE.md. See PAUL documentation for details on:

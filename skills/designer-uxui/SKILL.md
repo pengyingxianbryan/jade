@@ -1,6 +1,6 @@
 ---
 name: designer-uxui
-description: Use during /jade:apply when tasks involve frontend UI — enforces premium design standards using Next.js App Router, Tailwind CSS, and Motion
+description: Use during /pm:apply when tasks involve frontend UI — enforces premium design standards using Next.js App Router, Tailwind CSS, and Motion
 ---
 
 # Designer UX/UI — Premium Frontend Enforcement
@@ -11,7 +11,7 @@ Build sites that feel premium, intentional, and alive. Motion is meaning — eve
 
 ## When This Skill Activates
 
-This skill activates automatically during `/jade:apply` when any task involves:
+This skill activates automatically during `/pm:apply` when any task involves:
 - Frontend components, pages, or layouts
 - UI implementation (hero sections, feature grids, CTAs, navigation)
 - Design system setup (tokens, typography, color palette)
@@ -441,7 +441,7 @@ State which pages you'll build upfront. For large scope, confirm with user befor
 
 ## Review Checklist
 
-Before marking a UI task complete during `/jade:apply`, verify:
+Before marking a UI task complete during `/pm:apply`, verify:
 
 | Issue | Fix |
 |---|---|

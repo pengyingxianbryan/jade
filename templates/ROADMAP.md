@@ -1,6 +1,6 @@
 # ROADMAP.md Template
 
-Template for `.jade/ROADMAP.md` — the project's phase structure.
+Template for `.pm/ROADMAP.md` — the project's phase structure.
 
 **Purpose:** Define milestones and phases. Provides structure, not detailed tasks.
 

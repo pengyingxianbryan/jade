@@ -1,40 +1,49 @@
 ---
-name: jade:progress
-description: Smart status with Jira/GitHub/TDD context — suggests ONE next action
+name: pm:progress
+description: Smart status with local tracking context — suggests ONE next action
 argument-hint: "[context]"
-allowed-tools: [Read]
+allowed-tools: [Read, Glob]
 ---
 
 <objective>
-Show current progress including Jira ticket status, GitHub branch state, and TDD results across all phases. Route to exactly ONE next action.
+Show current progress including Story/Task status, GitHub branch state, and TDD results across all phases. Route to exactly ONE next action.
 
 **When to use:**
 - Mid-session check on progress
-- After `/jade:resume` for more context
+- After `/pm:resume` for more context
 - When unsure what to do next
 </objective>
 
 <context>
 $ARGUMENTS
 
-@.jade/STATE.md
-@.jade/ROADMAP.md
+@.pm/STATE.md
+@.pm/ROADMAP.md
 </context>
 
 <process>
 
 <step name="load_state">
-Read `.jade/STATE.md` and `.jade/ROADMAP.md`:
+Read `.pm/STATE.md` and `.pm/ROADMAP.md`:
 - Current phase and total phases
 - Current plan (if any)
 - Loop position (PLAN/APPLY/UNIFY markers)
 - Plans approved timestamp
 - Per-phase plan status (planned / revised / executing / complete)
-- Jira section: ticket key, status, last synced
-- GitHub section: branch, remote verified, last push, PR URL
-- TDD Results: per-task RED/GREEN/REFACTOR status
-- Performance metrics
-- Blockers or concerns
+
+Read STORY.md files from each phase directory:
+- Status per phase (To Do / In Progress / In Review / Done)
+
+Read TASK-NN.md files from active phase:
+- Per-task status and completion records
+- PR URLs
+
+GitHub status:
+- `git branch --show-current`
+- `git status`
+
+TDD Results from STATE.md:
+- Per-task RED/GREEN/REFACTOR status
 </step>
 
 <step name="calculate_progress">
@@ -46,23 +55,21 @@ Read `.jade/STATE.md` and `.jade/ROADMAP.md`:
 - Position: PLAN/APPLY/UNIFY
 - Status: [what's happening]
 
-**Jira Status:**
-- Ticket: [key] — [status]
-- Last synced: [timestamp]
+**Story Status (per phase):**
+- Phase 1: [name] — [To Do / In Progress / In Review / Done]
+- Phase 2: [name] — [To Do / In Progress / In Review / Done]
+
+**Task Status (current phase):**
+- Task 1: [name] — [To Do / In Progress / Done] [PR URL if exists]
+- Task 2: [name] — [To Do / In Progress / Done]
 
 **GitHub Status:**
-- Branch: jade/[key]
-- Last push: [timestamp]
-- PR: [URL or "not yet"]
+- Current branch: [branch name]
+- Working tree: [clean/dirty]
 
 **TDD Progress:**
 - Tasks complete: X of Y
 - Total tests: N passing
-
-**Phase Plan Status:**
-- Phase 1: [planned / revised / executing / complete]
-- Phase 2: [planned / revised / executing / complete]
-- ...
 </step>
 
 <step name="determine_routing">
@@ -70,15 +77,15 @@ Based on state, determine **ONE** next action:
 
 | Situation | Single Suggestion |
 |-----------|-------------------|
-| No project initialized | `/jade:init` |
-| Init done, no plans | `/jade:plan` |
-| Plans approved, not executing | `/jade:apply` |
-| Phase applied, not unified | `/jade:unify` |
-| Unified, more phases remain | `/jade:apply` (next phase) or `/jade:plan --revise N` |
-| All phases unified | `/jade:verify` |
-| TDD gate failed (task blocked) | "Fix failing test and continue /jade:apply" |
-| GitHub remote unreachable | "Fix GitHub remote before /jade:apply" |
-| Blockers present | "Address blocker: [specific]" |
+| No project initialized | `/pm:init` |
+| Init done, no plans | `/pm:plan` |
+| Plans approved, not executing | `/pm:apply` |
+| Phase applied, not unified | `/pm:unify` |
+| Unified, more phases remain | `/pm:apply` (next phase) or `/pm:plan --revise N` |
+| All phases unified | `/pm:verify` |
+| TDD gate failed (task blocked) | "Fix failing test and continue /pm:apply" |
+| GitHub remote unreachable | "Fix GitHub remote before /pm:apply" |
+| PR waiting for merge | "Merge PR [URL] to continue" |
 
 **IMPORTANT:** Suggest exactly ONE action. Not multiple options.
 </step>
@@ -86,7 +93,7 @@ Based on state, determine **ONE** next action:
 <step name="display_progress">
 ```
 ════════════════════════════════════════
-JADE PROGRESS
+PM PROGRESS
 ════════════════════════════════════════
 
 Milestone: [name] - [X]% complete
@@ -105,14 +112,16 @@ Current Loop: Phase 2, Plan 02-01
 │    ✓        ✓        ○             │
 └─────────────────────────────────────┘
 
-Jira: PROJ-123 — In Progress
-GitHub: jade/PROJ-123 — last push 10m ago
-TDD: 2/3 tasks complete | 14 tests passing
-PR: not yet
+Tasks (Phase 2):
+  Task 1: [name] — Done (PR: #12)
+  Task 2: [name] — In Progress
+  Task 3: [name] — To Do
+
+GitHub: main — clean
+TDD: 1/3 tasks complete | 8 tests passing
 
 ────────────────────────────────────────
-▶ NEXT: /jade:unify .jade/phases/02-features/02-01-PLAN.md
-  Close the loop, post summary to Jira, open PR.
+▶ NEXT: Continue /pm:apply for Task 2
 ────────────────────────────────────────
 ```
 </step>
@@ -121,9 +130,9 @@ PR: not yet
 
 <success_criteria>
 - [ ] Overall progress displayed visually
-- [ ] Per-phase plan status shown (planned/revised/executing/complete)
-- [ ] Jira ticket status shown
-- [ ] GitHub branch and push status shown
+- [ ] Per-phase Story status shown
+- [ ] Per-task status shown for active phase with PR URLs
+- [ ] GitHub branch status shown
 - [ ] TDD progress shown (tasks complete, tests passing)
 - [ ] Current loop position shown
 - [ ] Exactly ONE next action suggested
